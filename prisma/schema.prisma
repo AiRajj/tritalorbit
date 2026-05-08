@@ -1,0 +1,669 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  AGENCY_OWNER
+  RECRUITER
+  CONCIERGE_MANAGER
+  MSP_VIEWER
+  CANDIDATE
+  VENDOR_LANDLORD
+}
+
+enum OfferStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  DECLINED
+  BACKED_OUT
+  EXPIRED
+}
+
+enum BookingStatus {
+  NEW
+  IN_PROGRESS
+  WAITING_CANDIDATE
+  COMPLETED
+  CANCELLED
+}
+
+enum ConciergeTaskStatus {
+  NEW
+  IN_PROGRESS
+  WAITING_CANDIDATE
+  COMPLETED
+  CANCELLED
+}
+
+enum RiskLabel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum InsightType {
+  OFFER_BOOST
+  RETENTION_RISK
+  READINESS
+  CONCIERGE
+  MSP_REPORT
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  ACTION_REQUIRED
+  SUCCESS
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum AssignmentReadinessStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  READY
+  BLOCKED
+}
+
+enum LeadType {
+  LEAD
+  CONTACT
+  PRICING
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id                   String               @id @default(uuid())
+  name                 String
+  email                String               @unique
+  passwordHash         String?
+  role                 Role                 @default(CANDIDATE)
+  phone                String?
+  image                String?
+  isActive             Boolean              @default(true)
+  lastLoginAt          DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  agencyMemberships    AgencyMember[]
+  candidateProfile     Candidate?
+  recruiterOffers      Offer[]              @relation("RecruiterOffers")
+  conciergeTasksOwned  ConciergeTask[]      @relation("ConciergeTaskOwner")
+  activityLogs         ActivityLog[]
+  notifications        Notification[]
+  auditLogsAsActor     AuditLog[]           @relation("AuditActor")
+  accounts             Account[]
+  sessions             Session[]
+  bookingRequestsOwned BookingRequest[]     @relation("BookingRequestOwner")
+  passwordResetTokens  PasswordResetToken[]
+
+  @@index([role])
+}
+
+model Agency {
+  id                String             @id @default(uuid())
+  name              String
+  slug              String             @unique
+  website           String?
+  supportEmail      String?
+  supportPhone      String?
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  members           AgencyMember[]
+  candidates        Candidate[]
+  assignments       Assignment[]
+  offers            Offer[]
+  bookingRequests   BookingRequest[]
+  vendors           Vendor[]
+  subscriptionPlans SubscriptionPlan[]
+  mspReports        MSPReport[]
+
+  @@index([name])
+}
+
+model AgencyMember {
+  id        String   @id @default(uuid())
+  agencyId  String
+  userId    String
+  title     String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  agency    Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([agencyId, userId])
+  @@index([userId])
+}
+
+model Candidate {
+  id                  String               @id @default(uuid())
+  userId              String?              @unique
+  agencyId            String
+  recruiterId         String?
+  fullName            String
+  email               String               @unique
+  phone               String?
+  roleTitle           String?
+  specialty           String?
+  licenseState        String?
+  yearsExperience     Int?
+  engagementScore     Int                  @default(50)
+  unreadMessageCount  Int                  @default(0)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  user                User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  agency              Agency               @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  assignments         Assignment[]
+  offers              Offer[]
+  bookingRequests     BookingRequest[]
+  housingOptions      HousingOption[]
+  travelOptions       TravelOption[]
+  carRentalOptions    CarRentalOption[]
+  conciergeTasks      ConciergeTask[]
+  activityLogs        ActivityLog[]
+  retentionRiskScores RetentionRiskScore[]
+  documentVaultItems  DocumentVault[]
+
+  @@index([agencyId])
+  @@index([agencyId, email])
+}
+
+model Assignment {
+  id                 String                    @id @default(uuid())
+  agencyId           String
+  candidateId        String
+  facilityName       String
+  city               String
+  state              String
+  startDate          DateTime
+  durationWeeks      Int
+  shift              String
+  specialty          String
+  mspClientName      String?
+  status             AssignmentReadinessStatus @default(NOT_STARTED)
+  housingStatus      String                    @default("PENDING")
+  travelStatus       String                    @default("PENDING")
+  documentsStatus    String                    @default("PENDING")
+  firstWeekReadiness Int                       @default(0)
+  readinessNotes     String?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  agency             Agency                    @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  candidate          Candidate                 @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  offers             Offer[]
+  bookingRequests    BookingRequest[]
+  activityLogs       ActivityLog[]
+  documentVaultItems DocumentVault[]
+
+  @@index([agencyId, startDate])
+  @@index([candidateId])
+}
+
+model Offer {
+  id                       String               @id @default(uuid())
+  agencyId                 String
+  assignmentId             String
+  candidateId              String
+  recruiterId              String
+  status                   OfferStatus          @default(DRAFT)
+  weeklyPay                Float
+  taxableRate              Float
+  stipend                  Float
+  estimatedContractValue   Float
+  confidenceScore          Int                  @default(70)
+  aiEnhancedSummary        String?
+  aiValueStatement         String?
+  aiRecruiterTalkingPoints String?
+  aiSmsPitch               String?
+  aiEmailPitch             String?
+  aiCloseStrategy          String?
+  pdfReadyOffer            String?
+  shareableToken           String               @unique @default(uuid())
+  sentAt                   DateTime?
+  viewedAt                 DateTime?
+  acceptedAt               DateTime?
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+  agency                   Agency               @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  assignment               Assignment           @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  candidate                Candidate            @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  recruiter                User                 @relation("RecruiterOffers", fields: [recruiterId], references: [id], onDelete: Restrict)
+  perks                    OfferPerk[]
+  bookingRequests          BookingRequest[]
+  activityLogs             ActivityLog[]
+  retentionRiskScores      RetentionRiskScore[]
+  aiInsights               AIInsight[]
+
+  @@index([agencyId, status])
+  @@index([candidateId])
+  @@index([sentAt])
+}
+
+model OfferPerk {
+  id          String   @id @default(uuid())
+  offerId     String
+  type        String
+  title       String
+  description String
+  included    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  offer       Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@index([offerId])
+}
+
+model BookingRequest {
+  id                String          @id @default(uuid())
+  offerId           String
+  assignmentId      String
+  candidateId       String
+  agencyId          String
+  ownerId           String?
+  status            BookingStatus   @default(NEW)
+  needFlight        Boolean         @default(false)
+  needHousing       Boolean         @default(false)
+  needCar           Boolean         @default(false)
+  moveDate          DateTime?
+  budgetRange       String?
+  preferredLocation String?
+  notes             String?
+  timelineNote      String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  offer             Offer           @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  assignment        Assignment      @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  candidate         Candidate       @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  agency            Agency          @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  owner             User?           @relation("BookingRequestOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  conciergeTasks    ConciergeTask[]
+
+  @@index([status])
+  @@index([agencyId])
+}
+
+model HousingOption {
+  id                 String                  @id @default(uuid())
+  candidateId        String?
+  assignmentCity     String
+  assignmentState    String
+  propertyName       String
+  monthlyCost        Float
+  distanceToFacility Float
+  availableFrom      DateTime
+  availableTo        DateTime?
+  verificationStatus VerificationStatus      @default(PENDING)
+  rating             Float                   @default(0)
+  contactEmail       String?
+  contactPhone       String?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  candidate          Candidate?              @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  vendorLinks        VendorHousingOption[]
+  landlordLinks      LandlordHousingOption[]
+
+  @@index([assignmentCity, assignmentState])
+  @@index([verificationStatus])
+}
+
+model TravelOption {
+  id            String     @id @default(uuid())
+  candidateId   String?
+  provider      String
+  departureCity String
+  arrivalCity   String
+  price         Float
+  refundable    Boolean    @default(false)
+  departureDate DateTime
+  returnDate    DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  candidate     Candidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+
+  @@index([arrivalCity])
+}
+
+model CarRentalOption {
+  id            String     @id @default(uuid())
+  candidateId   String?
+  provider      String
+  city          String
+  state         String
+  weeklyCost    Float
+  vehicleType   String
+  availableFrom DateTime
+  availableTo   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  candidate     Candidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+
+  @@index([city, state])
+}
+
+model Vendor {
+  id                 String                @id @default(uuid())
+  agencyId           String?
+  userId             String?
+  companyName        String
+  category           String
+  city               String
+  state              String
+  verificationStatus VerificationStatus    @default(PENDING)
+  rating             Float                 @default(0)
+  contactEmail       String
+  contactPhone       String?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  agency             Agency?               @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  housingOptions     VendorHousingOption[]
+
+  @@index([verificationStatus])
+}
+
+model Landlord {
+  id                 String                  @id @default(uuid())
+  companyName        String
+  city               String
+  state              String
+  verificationStatus VerificationStatus      @default(PENDING)
+  rating             Float                   @default(0)
+  contactEmail       String
+  contactPhone       String?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  housingOptions     LandlordHousingOption[]
+
+  @@index([verificationStatus])
+}
+
+model VendorHousingOption {
+  id              String        @id @default(uuid())
+  vendorId        String
+  housingOptionId String
+  vendor          Vendor        @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  housingOption   HousingOption @relation(fields: [housingOptionId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, housingOptionId])
+}
+
+model LandlordHousingOption {
+  id              String        @id @default(uuid())
+  landlordId      String
+  housingOptionId String
+  landlord        Landlord      @relation(fields: [landlordId], references: [id], onDelete: Cascade)
+  housingOption   HousingOption @relation(fields: [housingOptionId], references: [id], onDelete: Cascade)
+
+  @@unique([landlordId, housingOptionId])
+}
+
+model ConciergeTask {
+  id                String              @id @default(uuid())
+  bookingRequestId  String
+  candidateId       String
+  ownerId           String?
+  title             String
+  details           String?
+  status            ConciergeTaskStatus @default(NEW)
+  dueDate           DateTime?
+  aiSuggestedUpdate String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  bookingRequest    BookingRequest      @relation(fields: [bookingRequestId], references: [id], onDelete: Cascade)
+  candidate         Candidate           @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  owner             User?               @relation("ConciergeTaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+}
+
+model ActivityLog {
+  id           String      @id @default(uuid())
+  userId       String?
+  candidateId  String?
+  assignmentId String?
+  offerId      String?
+  action       String
+  metadata     Json?
+  createdAt    DateTime    @default(now())
+  user         User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  candidate    Candidate?  @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  assignment   Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  offer        Offer?      @relation(fields: [offerId], references: [id], onDelete: SetNull)
+
+  @@index([action])
+  @@index([createdAt])
+}
+
+model RetentionRiskScore {
+  id                  String    @id @default(uuid())
+  candidateId         String
+  offerId             String?
+  score               Int
+  label               RiskLabel
+  reasoning           String
+  suggestedAction     String
+  suggestedSms        String
+  suggestedCallScript String
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  candidate           Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  offer               Offer?    @relation(fields: [offerId], references: [id], onDelete: SetNull)
+
+  @@index([score])
+  @@index([label])
+}
+
+model AIInsight {
+  id           String      @id @default(uuid())
+  offerId      String?
+  assignmentId String?
+  candidateId  String?
+  type         InsightType
+  title        String
+  content      String
+  model        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  offer        Offer?      @relation(fields: [offerId], references: [id], onDelete: SetNull)
+
+  @@index([type])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType @default(INFO)
+  title     String
+  message   String
+  readAt    DateTime?
+  link      String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+model SubscriptionPlan {
+  id                   String             @id @default(uuid())
+  agencyId             String
+  planName             String
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  seats                Int                @default(5)
+  status               SubscriptionStatus @default(TRIAL)
+  renewsAt             DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  agency               Agency             @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  paymentRecords       PaymentRecord[]
+
+  @@index([status])
+}
+
+model PaymentRecord {
+  id                 String           @id @default(uuid())
+  subscriptionPlanId String
+  amount             Float
+  currency           String           @default("USD")
+  status             String
+  stripeInvoiceId    String?
+  paidAt             DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  subscriptionPlan   SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model DocumentVault {
+  id           String         @id @default(uuid())
+  candidateId  String
+  assignmentId String?
+  documentType String
+  fileUrl      String
+  status       DocumentStatus @default(PENDING)
+  uploadedAt   DateTime       @default(now())
+  reviewedAt   DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  candidate    Candidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  assignment   Assignment?    @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+}
+
+model MSPReport {
+  id                  String   @id @default(uuid())
+  agencyId            String?
+  periodStart         DateTime
+  periodEnd           DateTime
+  acceptanceRate      Float
+  backoutRate         Float
+  timeToReadyDays     Float
+  showUpRate          Float
+  readinessRate       Float
+  supplierPerformance Json?
+  aiExecutiveSummary  String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  agency              Agency?  @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+
+  @@index([periodStart, periodEnd])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  entityType String
+  entityId   String
+  action     String
+  diff       Json?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+}
+
+model Lead {
+  id        String   @id @default(uuid())
+  type      LeadType @default(LEAD)
+  firstName String
+  lastName  String
+  email     String
+  company   String?
+  role      String?
+  phone     String?
+  message   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}
+
+model DemoRequest {
+  id                String    @id @default(uuid())
+  fullName          String
+  email             String
+  company           String
+  role              String?
+  teamSize          String?
+  monthlyPlacements String?
+  goals             String?
+  preferredDate     DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([email])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}

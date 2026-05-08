@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+:root {
+  --trital-deep-blue: #0b3c5d;
+  --trital-sharp-red: #e63946;
+  --trital-clean-white: #f8fafc;
+  --trital-dark-slate: #1f2937;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  border-color: rgb(226 232 240 / 1);
+}
+
+body {
+  background: var(--trital-clean-white);
+  color: var(--trital-dark-slate);
+  font-family: var(--font-sans), sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
