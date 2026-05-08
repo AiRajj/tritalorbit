@@ -20,7 +20,7 @@ import {
   CalendarCheck,
   Star,
   Eye,
-  MoreHorizontal,
+  Pencil,
   MapPin,
   CheckCircle2,
   ArrowRight,
@@ -29,10 +29,10 @@ import {
 } from "lucide-react";
 
 const stats = [
-  { label: "Active Listings", value: 12, icon: <ListChecks className="h-5 w-5 text-[#0B3C5D]" />, change: "+2 this week" },
-  { label: "Inquiries", value: 34, icon: <MessageSquare className="h-5 w-5 text-blue-500" />, change: "+8 this week" },
-  { label: "Bookings", value: 19, icon: <CalendarCheck className="h-5 w-5 text-emerald-500" />, change: "+3 this month" },
-  { label: "Rating", value: "4.8", icon: <Star className="h-5 w-5 text-amber-500" />, change: "Based on 127 reviews" },
+  { label: "Active Listings", value: 5, icon: <ListChecks className="h-5 w-5 text-[#0B3C5D]" />, change: "+1 this week" },
+  { label: "Total Inquiries", value: 23, icon: <MessageSquare className="h-5 w-5 text-blue-500" />, change: "+5 this week" },
+  { label: "Active Bookings", value: 8, icon: <CalendarCheck className="h-5 w-5 text-emerald-500" />, change: "+2 this month" },
+  { label: "Average Rating", value: "4.7", icon: <Star className="h-5 w-5 text-amber-500" />, change: "Based on 89 reviews" },
 ];
 
 const listings = [
@@ -44,10 +44,11 @@ const listings = [
 ];
 
 const recentInquiries = [
-  { id: "INQ-01", name: "Sarah Mitchell", listing: "Furnished 1BR - Downtown Rochester", date: "2026-05-08", status: "New", message: "Hi, is this available from June 2? I need it for 13 weeks." },
-  { id: "INQ-02", name: "Maria Rodriguez", listing: "Shared 2BR Suite - Midtown", date: "2026-05-07", status: "Replied", message: "Does this include utilities? And is it pet-friendly?" },
-  { id: "INQ-03", name: "Robert Taylor", listing: "SUV Rental - Monthly Rate", date: "2026-05-07", status: "New", message: "I'll need it starting May 30. Can you do a 3-month deal?" },
-  { id: "INQ-04", name: "Lisa Chen", listing: "Corporate Extended Stay Package", date: "2026-05-06", status: "Booked", message: "Perfect, I'll take it. Starting June 5 for 8 weeks." },
+  { id: "INQ-01", name: "Candidate #4821", listing: "Furnished 1BR - Downtown Rochester", date: "2026-05-08", duration: "13 weeks", budget: "$1,200/mo", status: "New", message: "Hi, is this available from June 2? I need it for 13 weeks." },
+  { id: "INQ-02", name: "Candidate #3297", listing: "Shared 2BR Suite - Midtown", date: "2026-05-07", duration: "8 weeks", budget: "$1,800/mo", status: "Replied", message: "Does this include utilities? And is it pet-friendly?" },
+  { id: "INQ-03", name: "Candidate #5104", listing: "SUV Rental - Monthly Rate", date: "2026-05-07", duration: "6 months", budget: "$600/mo", status: "New", message: "I'll need it starting May 30. Can you do a 3-month deal?" },
+  { id: "INQ-04", name: "Candidate #2788", listing: "Corporate Extended Stay Package", date: "2026-05-06", duration: "26 weeks", budget: "$950/mo", status: "Booked", message: "Perfect, I'll take it. Starting June 5 for 8 weeks." },
+  { id: "INQ-05", name: "Candidate #6015", listing: "Furnished 1BR - Downtown Rochester", date: "2026-05-05", duration: "13 weeks", budget: "$1,100/mo", status: "New", message: "Looking for availability starting July 1. Is parking included?" },
 ];
 
 const profileCompletion = {
@@ -96,9 +97,14 @@ export default function VendorDashboardPage() {
           <h1 className="text-2xl font-bold text-[#1F2937]">Vendor Dashboard</h1>
           <p className="text-sm text-[#1F2937]/60 mt-1">Manage your listings, inquiries, and bookings</p>
         </motion.div>
-        <Button className="bg-[#0B3C5D] hover:bg-[#0B3C5D]/90 text-white">
-          <Plus className="h-4 w-4 mr-2" /> Add Listing
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="border-[#0B3C5D]/20 text-[#0B3C5D]">
+            Update Profile
+          </Button>
+          <Button className="bg-[#0B3C5D] hover:bg-[#0B3C5D]/90 text-white">
+            <Plus className="h-4 w-4 mr-2" /> Add New Listing
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -159,8 +165,8 @@ export default function VendorDashboardPage() {
                       <td className="py-3 px-4 text-center text-[#1F2937]/70">{listing.bookings}</td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Eye className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" className="h-7 text-xs text-[#0B3C5D] px-2 gap-1"><Pencil className="h-3 w-3" /> Edit</Button>
+                          <Button variant="ghost" size="sm" className="h-7 text-xs text-[#1F2937]/60 px-2 gap-1"><Eye className="h-3 w-3" /> View</Button>
                         </div>
                       </td>
                     </tr>
@@ -191,8 +197,24 @@ export default function VendorDashboardPage() {
                     </Badge>
                   </div>
                   <p className="text-xs text-[#0B3C5D] mb-1">{inq.listing}</p>
+                  <div className="flex items-center gap-3 text-[10px] text-[#1F2937]/40 mb-1">
+                    <span>Duration: {inq.duration}</span>
+                    <span>Budget: {inq.budget}</span>
+                  </div>
                   <p className="text-xs text-[#1F2937]/50 line-clamp-1">{inq.message}</p>
-                  <p className="text-[10px] text-[#1F2937]/30 mt-1">{formatDate(inq.date)}</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-[10px] text-[#1F2937]/30">{formatDate(inq.date)}</p>
+                    {inq.status === "New" && (
+                      <div className="flex items-center gap-1.5">
+                        <Button variant="ghost" size="sm" className="h-6 text-[10px] text-[#0B3C5D] px-2">
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> Respond
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-6 text-[10px] text-red-500 px-2">
+                          Decline
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </CardContent>
