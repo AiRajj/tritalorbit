@@ -1,0 +1,946 @@
+// TRITAL Orbit™ - Healthcare Workforce Mobility Infrastructure
+// Prisma Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==================== ENUMS ====================
+
+enum UserRole {
+  SUPER_ADMIN
+  AGENCY_OWNER
+  RECRUITER
+  CONCIERGE_MANAGER
+  MSP_VIEWER
+  CANDIDATE
+  VENDOR
+}
+
+enum OfferStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  WITHDRAWN
+}
+
+enum BookingStatus {
+  NEW
+  IN_PROGRESS
+  WAITING_CANDIDATE
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskStatus {
+  NEW
+  IN_PROGRESS
+  WAITING_CANDIDATE
+  COMPLETED
+  CANCELLED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DocumentStatus {
+  PENDING
+  UPLOADED
+  VERIFIED
+  REJECTED
+}
+
+enum VendorType {
+  HOUSING
+  TRAVEL
+  CAR_RENTAL
+  CONCIERGE
+  RELOCATION
+}
+
+enum SubscriptionTier {
+  STARTER
+  GROWTH
+  ENTERPRISE
+  CUSTOM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  PAST_DUE
+  CANCELLED
+  TRIALING
+}
+
+enum AssignmentStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  ON_HOLD
+}
+
+enum HousingStatus {
+  NOT_REQUESTED
+  REQUESTED
+  IN_PROGRESS
+  CONFIRMED
+  CANCELLED
+}
+
+enum TravelStatus {
+  NOT_REQUESTED
+  REQUESTED
+  BOOKED
+  CONFIRMED
+  CANCELLED
+}
+
+enum ReadinessStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  READY
+  AT_RISK
+  CRITICAL
+}
+
+enum NotificationType {
+  OFFER_SENT
+  OFFER_VIEWED
+  OFFER_ACCEPTED
+  OFFER_DECLINED
+  BOOKING_REQUEST
+  HIGH_RISK_ALERT
+  TASK_COMPLETED
+  TASK_ASSIGNED
+  SYSTEM_ALERT
+  AI_RECOMMENDATION
+  HOUSING_UPDATE
+  TRAVEL_UPDATE
+}
+
+enum ActivityType {
+  OFFER_CREATED
+  OFFER_SENT
+  OFFER_VIEWED
+  OFFER_ACCEPTED
+  OFFER_DECLINED
+  HOUSING_REQUESTED
+  TRAVEL_REQUESTED
+  CAR_REQUESTED
+  BOOKING_CREATED
+  TASK_ASSIGNED
+  TASK_COMPLETED
+  RISK_SCORE_UPDATED
+  AI_GENERATED
+  USER_LOGIN
+  USER_LOGOUT
+  DOCUMENT_UPLOADED
+  CANDIDATE_REGISTERED
+  ASSIGNMENT_CREATED
+}
+
+// ==================== AUTHENTICATION ====================
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ==================== USER ====================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  firstName     String?
+  lastName      String?
+  phone         String?
+  image         String?
+  passwordHash  String?
+  role          UserRole  @default(CANDIDATE)
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  notifications Notification[]
+  activityLogs  ActivityLog[]
+  auditLogs     AuditLog[]
+
+  // Role-specific relations
+  agencyMember  AgencyMember?
+  candidate     Candidate?
+  vendor        Vendor?
+  
+  passwordResetTokens PasswordResetToken[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expires   DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ==================== AGENCY ====================
+
+model Agency {
+  id             String    @id @default(cuid())
+  name           String
+  slug           String    @unique
+  website        String?
+  phone          String?
+  email          String?
+  logoUrl        String?
+  address        String?
+  city           String?
+  state          String?
+  zipCode        String?
+  country        String    @default("US")
+  description    String?
+  isActive       Boolean   @default(true)
+  isVerified     Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  members        AgencyMember[]
+  candidates     Candidate[]
+  assignments    Assignment[]
+  offers         Offer[]
+  vendors        AgencyVendor[]
+  subscription   AgencySubscription?
+  mspReports     MSPReport[]
+  activityLogs   ActivityLog[]
+
+  @@index([slug])
+}
+
+model AgencyMember {
+  id        String   @id @default(cuid())
+  agencyId  String
+  userId    String   @unique
+  role      UserRole
+  title     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agency    Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offers    Offer[]
+
+  @@index([agencyId])
+}
+
+// ==================== CANDIDATE / CLINICIAN ====================
+
+model Candidate {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  agencyId        String?
+  firstName       String
+  lastName        String
+  email           String
+  phone           String?
+  specialty       String?
+  role            String?
+  licenseState    String?
+  licenseNumber   String?
+  yearsExperience Int?
+  profileComplete Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  source          String?
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agency            Agency?             @relation(fields: [agencyId], references: [id])
+  assignments       Assignment[]
+  offers            Offer[]
+  bookingRequests   BookingRequest[]
+  retentionRisks    RetentionRiskScore[]
+  readinessChecks   AssignmentReadiness[]
+  documents         DocumentVault[]
+  activityLogs      ActivityLog[]
+
+  @@index([agencyId])
+  @@index([email])
+}
+
+// ==================== ASSIGNMENT ====================
+
+model Assignment {
+  id              String           @id @default(cuid())
+  agencyId        String
+  candidateId     String?
+  facilityName    String
+  facilityCity    String
+  facilityState   String
+  facilityAddress String?
+  specialty       String
+  role            String
+  startDate       DateTime?
+  endDate         DateTime?
+  duration        Int?
+  shiftType       String?
+  weeklyPay       Float?
+  taxableRate     Float?
+  stipend         Float?
+  totalContractValue Float?
+  mspClient       String?
+  status          AssignmentStatus @default(DRAFT)
+  notes           String?          @db.Text
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  agency          Agency           @relation(fields: [agencyId], references: [id])
+  candidate       Candidate?       @relation(fields: [candidateId], references: [id])
+  offers          Offer[]
+  readiness       AssignmentReadiness?
+  activityLogs    ActivityLog[]
+
+  @@index([agencyId])
+  @@index([candidateId])
+  @@index([status])
+}
+
+// ==================== OFFER ====================
+
+model Offer {
+  id                   String      @id @default(cuid())
+  agencyId             String
+  recruiterId          String?
+  candidateId          String?
+  assignmentId         String?
+  
+  // Candidate Info
+  candidateName        String
+  candidateEmail       String
+  candidatePhone       String?
+  candidateRole        String?
+  candidateSpecialty   String?
+  candidateLicenseState String?
+  candidateExperience  Int?
+  
+  // Assignment Info
+  facilityName         String
+  facilityCity         String
+  facilityState        String
+  startDate            DateTime?
+  duration             Int?
+  shiftType            String?
+  specialty            String?
+  mspClient            String?
+  
+  // Compensation
+  weeklyPay            Float?
+  taxableRate          Float?
+  stipend              Float?
+  totalContractValue   Float?
+  
+  // Status & Tracking
+  status               OfferStatus  @default(DRAFT)
+  token                String       @unique @default(cuid())
+  sentAt               DateTime?
+  viewedAt             DateTime?
+  acceptedAt           DateTime?
+  declinedAt           DateTime?
+  expiresAt            DateTime?
+  
+  // AI Generated Content
+  aiEnhancedSummary    String?      @db.Text
+  aiValueStatement     String?      @db.Text
+  aiRecruiterTalkingPoints String?  @db.Text
+  aiSMSPitch           String?      @db.Text
+  aiEmailPitch         String?      @db.Text
+  aiCloseStrategy      String?      @db.Text
+  candidateConfidenceScore Float?
+  
+  notes                String?      @db.Text
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  agency               Agency       @relation(fields: [agencyId], references: [id])
+  recruiter            AgencyMember? @relation(fields: [recruiterId], references: [id])
+  candidate            Candidate?   @relation(fields: [candidateId], references: [id])
+  assignment           Assignment?  @relation(fields: [assignmentId], references: [id])
+  perks                OfferPerk[]
+  bookingRequests      BookingRequest[]
+  retentionRisks       RetentionRiskScore[]
+  activityLogs         ActivityLog[]
+  notifications        Notification[]
+
+  @@index([agencyId])
+  @@index([candidateId])
+  @@index([token])
+  @@index([status])
+}
+
+model OfferPerk {
+  id          String   @id @default(cuid())
+  offerId     String
+  type        String
+  title       String
+  description String?
+  value       Float?
+  isEnabled   Boolean  @default(true)
+  details     Json?
+  createdAt   DateTime @default(now())
+
+  offer       Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@index([offerId])
+}
+
+// ==================== BOOKING REQUEST ====================
+
+model BookingRequest {
+  id              String        @id @default(cuid())
+  offerId         String?
+  candidateId     String?
+  agencyId        String?
+  
+  needsFlight     Boolean       @default(false)
+  needsHousing    Boolean       @default(false)
+  needsCar        Boolean       @default(false)
+  moveDate        DateTime?
+  budgetRange     String?
+  preferredLocation String?
+  notes           String?       @db.Text
+  
+  status          BookingStatus @default(NEW)
+  assignedToId    String?
+  priority        String        @default("NORMAL")
+  completedAt     DateTime?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  offer           Offer?        @relation(fields: [offerId], references: [id])
+  candidate       Candidate?    @relation(fields: [candidateId], references: [id])
+  conciergeTask   ConciergeTask?
+
+  @@index([offerId])
+  @@index([candidateId])
+  @@index([status])
+}
+
+// ==================== HOUSING & TRAVEL OPTIONS ====================
+
+model HousingOption {
+  id              String   @id @default(cuid())
+  vendorId        String?
+  landlordId      String?
+  title           String
+  description     String?  @db.Text
+  city            String
+  state           String
+  address         String?
+  zipCode         String?
+  distanceToFacility Float?
+  monthlyRate     Float
+  weeklyRate      Float?
+  bedrooms        Int?
+  bathrooms       Float?
+  amenities       Json?
+  photos          Json?
+  availableFrom   DateTime?
+  availableTo     DateTime?
+  isAvailable     Boolean  @default(true)
+  isVerified      Boolean  @default(false)
+  rating          Float?
+  reviewCount     Int?     @default(0)
+  petFriendly     Boolean  @default(false)
+  furnished       Boolean  @default(true)
+  utilitiesIncluded Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  vendor          Vendor?   @relation(fields: [vendorId], references: [id])
+  landlord        Landlord? @relation(fields: [landlordId], references: [id])
+
+  @@index([city, state])
+  @@index([isAvailable])
+}
+
+model TravelOption {
+  id          String   @id @default(cuid())
+  vendorId    String?
+  type        String
+  airline     String?
+  origin      String?
+  destination String?
+  departDate  DateTime?
+  returnDate  DateTime?
+  price       Float?
+  isAvailable Boolean  @default(true)
+  details     Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  vendor      Vendor?  @relation(fields: [vendorId], references: [id])
+
+  @@index([destination])
+}
+
+model CarRentalOption {
+  id          String   @id @default(cuid())
+  vendorId    String?
+  company     String?
+  city        String
+  state       String
+  vehicleType String?
+  weeklyRate  Float?
+  dailyRate   Float?
+  isAvailable Boolean  @default(true)
+  details     Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  vendor      Vendor?  @relation(fields: [vendorId], references: [id])
+
+  @@index([city, state])
+}
+
+// ==================== VENDOR & LANDLORD ====================
+
+model Vendor {
+  id           String     @id @default(cuid())
+  userId       String?    @unique
+  name         String
+  companyName  String?
+  email        String
+  phone        String?
+  website      String?
+  type         VendorType
+  description  String?    @db.Text
+  city         String?
+  state        String?
+  coverageArea Json?
+  logoUrl      String?
+  isActive     Boolean    @default(true)
+  isVerified   Boolean    @default(false)
+  rating       Float?
+  reviewCount  Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  user         User?            @relation(fields: [userId], references: [id])
+  agencies     AgencyVendor[]
+  housingOptions HousingOption[]
+  travelOptions  TravelOption[]
+  carRentals     CarRentalOption[]
+  conciergeTasks ConciergeTask[]
+
+  @@index([type])
+  @@index([isVerified])
+}
+
+model Landlord {
+  id          String   @id @default(cuid())
+  firstName   String
+  lastName    String
+  email       String
+  phone       String?
+  company     String?
+  city        String?
+  state       String?
+  isVerified  Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  housingOptions HousingOption[]
+
+  @@index([email])
+}
+
+model AgencyVendor {
+  id        String   @id @default(cuid())
+  agencyId  String
+  vendorId  String
+  isPreferred Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  agency    Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([agencyId, vendorId])
+}
+
+// ==================== CONCIERGE ====================
+
+model ConciergeTask {
+  id               String     @id @default(cuid())
+  bookingRequestId String?    @unique
+  vendorId         String?
+  title            String
+  description      String?    @db.Text
+  candidateName    String?
+  candidateEmail   String?
+  assignmentCity   String?
+  assignmentState  String?
+  taskType         String?
+  status           TaskStatus @default(NEW)
+  priority         String     @default("NORMAL")
+  assignedToId     String?
+  dueDate          DateTime?
+  completedAt      DateTime?
+  notes            String?    @db.Text
+  candidateUpdate  String?    @db.Text
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  bookingRequest   BookingRequest? @relation(fields: [bookingRequestId], references: [id])
+  vendor           Vendor?         @relation(fields: [vendorId], references: [id])
+
+  @@index([status])
+  @@index([assignedToId])
+}
+
+// ==================== RETENTION RISK ====================
+
+model RetentionRiskScore {
+  id                  String    @id @default(cuid())
+  candidateId         String
+  offerId             String?
+  
+  score               Float
+  riskLevel           RiskLevel
+  reasoning           String?   @db.Text
+  suggestedAction     String?   @db.Text
+  suggestedSMS        String?   @db.Text
+  suggestedCallScript String?   @db.Text
+  
+  // Input factors
+  hasViewedOffer      Boolean   @default(false)
+  hoursSinceOfferSent Float?
+  housingRequested    Boolean   @default(false)
+  travelRequested     Boolean   @default(false)
+  daysToStartDate     Int?
+  weeklyPay           Float?
+  locationDifficulty  Float?
+  engagementScore     Float?
+  unansweredMessages  Int?      @default(0)
+  
+  calculatedAt        DateTime  @default(now())
+  createdAt           DateTime  @default(now())
+
+  candidate           Candidate @relation(fields: [candidateId], references: [id])
+  offer               Offer?    @relation(fields: [offerId], references: [id])
+
+  @@index([candidateId])
+  @@index([riskLevel])
+  @@index([score])
+}
+
+// ==================== ASSIGNMENT READINESS ====================
+
+model AssignmentReadiness {
+  id            String          @id @default(cuid())
+  assignmentId  String          @unique
+  candidateId   String
+  
+  housingStatus HousingStatus   @default(NOT_REQUESTED)
+  travelStatus  TravelStatus    @default(NOT_REQUESTED)
+  documentStatus DocumentStatus @default(PENDING)
+  overallStatus ReadinessStatus @default(NOT_STARTED)
+  
+  checklistItems Json?
+  riskScore      Float?
+  riskLevel      RiskLevel?
+  actionNeeded   String?
+  
+  firstWeekReady Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  assignment     Assignment     @relation(fields: [assignmentId], references: [id])
+  candidate      Candidate      @relation(fields: [candidateId], references: [id])
+
+  @@index([candidateId])
+  @@index([overallStatus])
+}
+
+// ==================== AI INSIGHTS ====================
+
+model AIInsight {
+  id          String   @id @default(cuid())
+  agencyId    String?
+  entityType  String
+  entityId    String
+  type        String
+  content     Json
+  model       String?
+  tokensUsed  Int?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([agencyId])
+}
+
+// ==================== NOTIFICATIONS ====================
+
+model Notification {
+  id         String           @id @default(cuid())
+  userId     String
+  offerId    String?
+  type       NotificationType
+  title      String
+  message    String           @db.Text
+  isRead     Boolean          @default(false)
+  readAt     DateTime?
+  data       Json?
+  createdAt  DateTime         @default(now())
+
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offer      Offer?           @relation(fields: [offerId], references: [id])
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+// ==================== SUBSCRIPTION & BILLING ====================
+
+model SubscriptionPlan {
+  id            String           @id @default(cuid())
+  name          String
+  tier          SubscriptionTier
+  price         Float
+  yearlyPrice   Float?
+  features      Json
+  maxUsers      Int?
+  maxOffers     Int?
+  isActive      Boolean          @default(true)
+  stripeProductId String?
+  stripePriceId   String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  subscriptions AgencySubscription[]
+}
+
+model AgencySubscription {
+  id             String             @id @default(cuid())
+  agencyId       String             @unique
+  planId         String
+  status         SubscriptionStatus @default(TRIALING)
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  trialEndsAt    DateTime?
+  cancelledAt    DateTime?
+  stripeCustomerId    String?
+  stripeSubscriptionId String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  agency         Agency             @relation(fields: [agencyId], references: [id])
+  plan           SubscriptionPlan   @relation(fields: [planId], references: [id])
+  payments       PaymentRecord[]
+}
+
+model PaymentRecord {
+  id             String   @id @default(cuid())
+  subscriptionId String
+  amount         Float
+  currency       String   @default("USD")
+  status         String
+  stripePaymentIntentId String?
+  invoiceUrl     String?
+  paidAt         DateTime?
+  createdAt      DateTime @default(now())
+
+  subscription   AgencySubscription @relation(fields: [subscriptionId], references: [id])
+
+  @@index([subscriptionId])
+}
+
+// ==================== DOCUMENTS ====================
+
+model DocumentVault {
+  id           String         @id @default(cuid())
+  candidateId  String
+  type         String
+  name         String
+  fileUrl      String?
+  status       DocumentStatus @default(PENDING)
+  expiresAt    DateTime?
+  verifiedAt   DateTime?
+  notes        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  candidate    Candidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+}
+
+// ==================== MSP REPORTS ====================
+
+model MSPReport {
+  id                String   @id @default(cuid())
+  agencyId          String
+  reportType        String
+  title             String
+  dateFrom          DateTime?
+  dateTo            DateTime?
+  
+  offerAcceptanceRate Float?
+  backoutRate         Float?
+  timeToReady         Float?
+  firstDayShowUpRate  Float?
+  mobilityUtilization Float?
+  
+  data              Json?
+  aiSummary         String?  @db.Text
+  
+  generatedAt       DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  agency            Agency   @relation(fields: [agencyId], references: [id])
+
+  @@index([agencyId])
+}
+
+// ==================== AUDIT & ACTIVITY ====================
+
+model ActivityLog {
+  id           String       @id @default(cuid())
+  userId       String?
+  agencyId     String?
+  candidateId  String?
+  assignmentId String?
+  offerId      String?
+  type         ActivityType
+  description  String
+  metadata     Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime     @default(now())
+
+  user         User?        @relation(fields: [userId], references: [id])
+  agency       Agency?      @relation(fields: [agencyId], references: [id])
+  candidate    Candidate?   @relation(fields: [candidateId], references: [id])
+  assignment   Assignment?  @relation(fields: [assignmentId], references: [id])
+  offer        Offer?       @relation(fields: [offerId], references: [id])
+
+  @@index([userId])
+  @@index([agencyId])
+  @@index([offerId])
+  @@index([type])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  oldValues  Json?
+  newValues  Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([resource, resourceId])
+}
+
+// ==================== LEADS & MARKETING ====================
+
+model Lead {
+  id          String   @id @default(cuid())
+  firstName   String?
+  lastName    String?
+  email       String
+  phone       String?
+  company     String?
+  role        String?
+  source      String?
+  message     String?  @db.Text
+  status      String   @default("NEW")
+  isConverted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([email])
+  @@index([status])
+}
+
+model DemoRequest {
+  id            String   @id @default(cuid())
+  firstName     String
+  lastName      String
+  email         String
+  phone         String?
+  company       String
+  role          String?
+  teamSize      String?
+  useCase       String?
+  message       String?  @db.Text
+  preferredDate DateTime?
+  preferredTime String?
+  status        String   @default("PENDING")
+  isScheduled   Boolean  @default(false)
+  scheduledAt   DateTime?
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([email])
+  @@index([status])
+}
