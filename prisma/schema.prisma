@@ -1,0 +1,612 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  AGENCY_OWNER
+  RECRUITER
+  CONCIERGE_MANAGER
+  MSP_VIEWER
+  CANDIDATE
+  VENDOR_LANDLORD
+}
+
+enum OfferStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  DECLINED
+  BACKOUT_RISK
+  CANCELLED
+}
+
+enum BookingStatus {
+  NEW
+  IN_PROGRESS
+  WAITING_CANDIDATE
+  COMPLETED
+  CANCELLED
+}
+
+enum ReadinessStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  READY
+  BLOCKED
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum TaskStatus {
+  NEW
+  IN_PROGRESS
+  WAITING_CANDIDATE
+  COMPLETED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  ACTION_REQUIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum LeadSource {
+  PRICING
+  CONTACT
+  WEBSITE
+}
+
+enum AIInsightType {
+  OFFER_BOOST
+  RISK_SCORE
+  READINESS
+  CONCIERGE
+  MSP_REPORT
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String?
+  phone        String?
+  image        String?
+  role         Role     @default(CANDIDATE)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  agenciesOwned  Agency[]        @relation("AgencyOwner")
+  memberships    AgencyMember[]
+  candidate      Candidate?
+  vendors        Vendor[]
+  landlords      Landlord[]
+  offersCreated  Offer[]         @relation("RecruiterOffers")
+  conciergeTasks ConciergeTask[] @relation("ConciergeTaskOwner")
+  notifications  Notification[]
+  activityLogs   ActivityLog[]
+  auditLogs      AuditLog[]
+  mspReports     MSPReport[]
+
+  accounts Account[]
+  sessions Session[]
+}
+
+model Agency {
+  id             String   @id @default(uuid())
+  name           String
+  slug           String   @unique
+  ownerId        String
+  primaryColor   String   @default("#0B3C5D")
+  secondaryColor String   @default("#E63946")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  owner             User               @relation("AgencyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members           AgencyMember[]
+  candidates        Candidate[]
+  assignments       Assignment[]
+  offers            Offer[]
+  bookingRequests   BookingRequest[]
+  conciergeTasks    ConciergeTask[]
+  activityLogs      ActivityLog[]
+  subscriptionPlans SubscriptionPlan[]
+  paymentRecords    PaymentRecord[]
+  mspReports        MSPReport[]
+  auditLogs         AuditLog[]
+}
+
+model AgencyMember {
+  id        String   @id @default(uuid())
+  agencyId  String
+  userId    String
+  title     String?
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([agencyId, userId])
+}
+
+model Candidate {
+  id                 String   @id @default(uuid())
+  userId             String?  @unique
+  agencyId           String
+  name               String
+  email              String
+  phone              String?
+  role               String
+  specialty          String
+  licenseState       String
+  experienceYears    Int      @default(0)
+  engagementScore    Float    @default(0)
+  unreadMessageCount Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user                User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  agency              Agency               @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  offers              Offer[]
+  assignments         Assignment[]
+  bookingRequests     BookingRequest[]
+  retentionRiskScores RetentionRiskScore[]
+  documentVault       DocumentVault[]
+  aiInsights          AIInsight[]
+  activityLogs        ActivityLog[]
+  conciergeTasks      ConciergeTask[]
+}
+
+model Assignment {
+  id                 String          @id @default(uuid())
+  agencyId           String
+  candidateId        String
+  facilityName       String
+  city               String
+  state              String
+  mspClient          String?
+  role               String
+  specialty          String
+  startDate          DateTime
+  durationWeeks      Int
+  shift              String
+  readinessStatus    ReadinessStatus @default(NOT_STARTED)
+  documentsStatus    ReadinessStatus @default(NOT_STARTED)
+  housingStatus      ReadinessStatus @default(NOT_STARTED)
+  travelStatus       ReadinessStatus @default(NOT_STARTED)
+  firstWeekReadiness Int             @default(0)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  agency              Agency               @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  candidate           Candidate            @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  offers              Offer[]
+  housingOptions      HousingOption[]
+  travelOptions       TravelOption[]
+  carRentalOptions    CarRentalOption[]
+  bookingRequests     BookingRequest[]
+  conciergeTasks      ConciergeTask[]
+  documentVault       DocumentVault[]
+  activityLogs        ActivityLog[]
+  retentionRiskScores RetentionRiskScore[]
+  aiInsights          AIInsight[]
+}
+
+model Offer {
+  id           String      @id @default(uuid())
+  agencyId     String
+  candidateId  String
+  assignmentId String
+  recruiterId  String
+  status       OfferStatus @default(DRAFT)
+  token        String      @unique @default(uuid())
+
+  weeklyPay              Decimal @db.Decimal(10, 2)
+  taxableRate            Decimal @db.Decimal(10, 2)
+  stipend                Decimal @db.Decimal(10, 2)
+  estimatedContractValue Decimal @db.Decimal(12, 2)
+
+  enhancedOfferSummary     String?
+  candidateValueStatement  String?
+  recruiterTalkingPoints   String?
+  smsPitch                 String?
+  emailPitch               String?
+  closeStrategy            String?
+  pdfReadyOffer            String?
+  candidateConfidenceScore Int?
+
+  viewedAt   DateTime?
+  sentAt     DateTime?
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  agency              Agency               @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  candidate           Candidate            @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  assignment          Assignment           @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  recruiter           User                 @relation("RecruiterOffers", fields: [recruiterId], references: [id], onDelete: Cascade)
+  perks               OfferPerk[]
+  bookingRequests     BookingRequest[]
+  retentionRiskScores RetentionRiskScore[]
+  aiInsights          AIInsight[]
+  activityLogs        ActivityLog[]
+}
+
+model OfferPerk {
+  id        String   @id @default(uuid())
+  offerId   String
+  name      String
+  enabled   Boolean  @default(false)
+  valueNote String?
+  createdAt DateTime @default(now())
+
+  offer Offer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+}
+
+model BookingRequest {
+  id                String        @id @default(uuid())
+  agencyId          String
+  candidateId       String
+  assignmentId      String
+  offerId           String
+  needFlight        Boolean       @default(false)
+  needHousing       Boolean       @default(false)
+  needCar           Boolean       @default(false)
+  moveDate          DateTime?
+  budgetRange       String?
+  preferredLocation String?
+  notes             String?
+  status            BookingStatus @default(NEW)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  agency         Agency          @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  candidate      Candidate       @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  assignment     Assignment      @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  offer          Offer           @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  conciergeTasks ConciergeTask[]
+}
+
+model HousingOption {
+  id                 String             @id @default(uuid())
+  assignmentId       String
+  vendorId           String?
+  landlordId         String?
+  title              String
+  city               String
+  state              String
+  distanceMiles      Float
+  monthlyCost        Decimal            @db.Decimal(10, 2)
+  availableFrom      DateTime
+  isVerified         Boolean            @default(false)
+  verificationStatus VerificationStatus @default(PENDING)
+  rating             Float?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  vendor     Vendor?    @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  landlord   Landlord?  @relation(fields: [landlordId], references: [id], onDelete: SetNull)
+}
+
+model TravelOption {
+  id                 String             @id @default(uuid())
+  assignmentId       String
+  vendorId           String?
+  providerName       String
+  city               String
+  state              String
+  estimatedCost      Decimal            @db.Decimal(10, 2)
+  availableFrom      DateTime
+  verificationStatus VerificationStatus @default(PENDING)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  vendor     Vendor?    @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+}
+
+model CarRentalOption {
+  id                 String             @id @default(uuid())
+  assignmentId       String
+  vendorId           String?
+  providerName       String
+  city               String
+  state              String
+  weeklyCost         Decimal            @db.Decimal(10, 2)
+  availableFrom      DateTime
+  verificationStatus VerificationStatus @default(PENDING)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  vendor     Vendor?    @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+}
+
+model Vendor {
+  id                 String             @id @default(uuid())
+  ownerId            String?
+  name               String
+  category           String
+  city               String
+  state              String
+  verificationStatus VerificationStatus @default(PENDING)
+  rating             Float?
+  contactEmail       String
+  contactPhone       String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  owner            User?             @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  housingOptions   HousingOption[]
+  travelOptions    TravelOption[]
+  carRentalOptions CarRentalOption[]
+}
+
+model Landlord {
+  id                 String             @id @default(uuid())
+  ownerId            String?
+  companyName        String
+  city               String
+  state              String
+  verificationStatus VerificationStatus @default(PENDING)
+  rating             Float?
+  contactEmail       String
+  contactPhone       String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  owner          User?           @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  housingOptions HousingOption[]
+}
+
+model ConciergeTask {
+  id               String     @id @default(uuid())
+  agencyId         String
+  bookingRequestId String?
+  assignmentId     String?
+  candidateId      String?
+  ownerId          String?
+  title            String
+  description      String?
+  status           TaskStatus @default(NEW)
+  priority         Priority   @default(MEDIUM)
+  dueDate          DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  agency         Agency          @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  bookingRequest BookingRequest? @relation(fields: [bookingRequestId], references: [id], onDelete: SetNull)
+  assignment     Assignment?     @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  candidate      Candidate?      @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  owner          User?           @relation("ConciergeTaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+}
+
+model ActivityLog {
+  id           String   @id @default(uuid())
+  agencyId     String
+  actorId      String?
+  candidateId  String?
+  offerId      String?
+  assignmentId String?
+  action       String
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  agency     Agency      @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  actor      User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  candidate  Candidate?  @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  offer      Offer?      @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+}
+
+model RetentionRiskScore {
+  id                  String   @id @default(uuid())
+  candidateId         String
+  assignmentId        String?
+  offerId             String?
+  score               Int
+  label               String
+  reasoning           String
+  suggestedAction     String
+  suggestedSms        String
+  suggestedCallScript String
+  createdAt           DateTime @default(now())
+
+  candidate  Candidate   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  offer      Offer?      @relation(fields: [offerId], references: [id], onDelete: SetNull)
+}
+
+model AIInsight {
+  id           String        @id @default(uuid())
+  type         AIInsightType
+  agencyId     String?
+  candidateId  String?
+  assignmentId String?
+  offerId      String?
+  title        String
+  content      String
+  model        String
+  createdAt    DateTime      @default(now())
+
+  candidate  Candidate?  @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  offer      Offer?      @relation(fields: [offerId], references: [id], onDelete: SetNull)
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType @default(INFO)
+  title     String
+  message   String
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SubscriptionPlan {
+  id            String    @id @default(uuid())
+  agencyId      String
+  name          String
+  stripePriceId String?
+  seats         Int       @default(1)
+  active        Boolean   @default(true)
+  startedAt     DateTime  @default(now())
+  renewalAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  agency   Agency          @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  payments PaymentRecord[]
+}
+
+model PaymentRecord {
+  id              String        @id @default(uuid())
+  agencyId        String
+  subscriptionId  String?
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("USD")
+  status          PaymentStatus @default(PENDING)
+  stripePaymentId String?
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+
+  agency       Agency            @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  subscription SubscriptionPlan? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+}
+
+model DocumentVault {
+  id           String             @id @default(uuid())
+  candidateId  String
+  assignmentId String?
+  documentType String
+  fileUrl      String
+  status       VerificationStatus @default(PENDING)
+  uploadedAt   DateTime           @default(now())
+  verifiedAt   DateTime?
+
+  candidate  Candidate   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+}
+
+model MSPReport {
+  id                  String   @id @default(uuid())
+  agencyId            String
+  generatedById       String?
+  periodStart         DateTime
+  periodEnd           DateTime
+  acceptanceRate      Float
+  backoutRate         Float
+  timeToReadyDays     Float
+  firstDayShowRate    Float
+  readinessRate       Float
+  supplierPerformance Json?
+  aiExecutiveSummary  String?
+  createdAt           DateTime @default(now())
+
+  agency      Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  generatedBy User?  @relation(fields: [generatedById], references: [id], onDelete: SetNull)
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  agencyId   String?
+  actorId    String?
+  action     String
+  targetType String
+  targetId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  agency Agency? @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  actor  User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+}
+
+model Lead {
+  id        String     @id @default(uuid())
+  source    LeadSource @default(WEBSITE)
+  name      String
+  workEmail String
+  company   String
+  teamSize  String?
+  message   String?
+  createdAt DateTime   @default(now())
+}
+
+model DemoRequest {
+  id                String   @id @default(uuid())
+  name              String
+  workEmail         String
+  company           String
+  role              String
+  monthlyPlacements Int?
+  painPoint         String?
+  createdAt         DateTime @default(now())
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([sessionToken])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
