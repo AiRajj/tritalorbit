@@ -1,4 +1,5 @@
 import { prisma } from './db';
+import type { Prisma } from '@prisma/client';
 
 export async function logActivity(params: {
   userId?: string;
@@ -6,9 +7,18 @@ export async function logActivity(params: {
   candidateId?: string;
   action: string;
   details?: string;
-  metadata?: any;
+  metadata?: Prisma.InputJsonValue;
 }) {
-  return prisma.activityLog.create({ data: params });
+  return prisma.activityLog.create({
+    data: {
+      action: params.action,
+      details: params.details,
+      metadata: params.metadata,
+      ...(params.userId && { user: { connect: { id: params.userId } } }),
+      ...(params.offerId && { offer: { connect: { id: params.offerId } } }),
+      ...(params.candidateId && { candidate: { connect: { id: params.candidateId } } }),
+    },
+  });
 }
 
 export async function createNotification(params: {
