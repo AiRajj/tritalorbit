@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/db";
 import { registerSchema } from "@/lib/validations";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,6 +17,8 @@ export async function POST(request: NextRequest) {
     }
 
     const { name, email, password, role } = parsed.data;
+
+    const { prisma } = await import("@/lib/db");
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
