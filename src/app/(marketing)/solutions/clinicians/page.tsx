@@ -11,7 +11,7 @@ export default function Page() {
         title: "Move with confidence. Day-1 ready.",
         description:
           "Your assignment, packaged for the way travel actually works. Verified housing, transparent pay, real concierge support — all in a mobile-first hub built for the floor, not the desk.",
-        cta: { label: "See the candidate hub", href: "/candidate" },
+        cta: { label: "Talk to a clinician advisor", href: "/contact?topic=clinician" },
       }}
       outcomes={[
         { value: "92%", label: "Day-1 ready" },
