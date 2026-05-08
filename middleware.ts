@@ -3,13 +3,15 @@ import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 const PROTECTED = ["/admin", "/agency", "/recruiter", "/concierge", "/msp", "/vendor"];
-const CANDIDATE_PROTECTED_REGEX = /^\/candidate(?!\/offer\/[^/]+$)(?!\/booking-request\/[^/]+$)/;
+// Candidate routes are protected EXCEPT public token-based pages.
+const CANDIDATE_PUBLIC_REGEX = /^\/candidate\/(offer|booking-request)\//;
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  if (CANDIDATE_PUBLIC_REGEX.test(pathname)) return NextResponse.next();
   const isProtected =
     PROTECTED.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ||
-    CANDIDATE_PROTECTED_REGEX.test(pathname);
+    pathname.startsWith("/candidate");
 
   if (!isProtected) return NextResponse.next();
 
