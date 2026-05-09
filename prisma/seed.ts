@@ -808,6 +808,437 @@ async function main() {
     }
   });
 
+  const travelAgencyUser = await prisma.user.upsert({
+    where: { email: "travel.partner@orbitvendors.com" },
+    update: { role: Role.TRAVEL_AGENCY_VENDOR },
+    create: {
+      email: "travel.partner@orbitvendors.com",
+      name: "Orbit Travel Partner",
+      role: Role.TRAVEL_AGENCY_VENDOR,
+      passwordHash
+    }
+  });
+
+  const housingProviderUser = await prisma.user.upsert({
+    where: { email: "housing.partner@orbitvendors.com" },
+    update: { role: Role.HOUSING_PROVIDER },
+    create: {
+      email: "housing.partner@orbitvendors.com",
+      name: "Orbit Housing Partner",
+      role: Role.HOUSING_PROVIDER,
+      passwordHash
+    }
+  });
+
+  const travelAgencyVendor = await prisma.vendor.create({
+    data: {
+      ownerId: travelAgencyUser.id,
+      name: "Orbit Global Travel",
+      category: "Travel Agency",
+      city: "New York",
+      state: "NY",
+      verificationStatus: VerificationStatus.VERIFIED,
+      rating: 4.7,
+      contactEmail: travelAgencyUser.email
+    }
+  });
+
+  const housingVendor = await prisma.vendor.create({
+    data: {
+      ownerId: housingProviderUser.id,
+      name: "SafeShift Housing",
+      category: "Housing Provider",
+      city: "Dallas",
+      state: "TX",
+      verificationStatus: VerificationStatus.VERIFIED,
+      rating: 4.9,
+      contactEmail: housingProviderUser.email
+    }
+  });
+
+  await prisma.vendorBidProfile.upsert({
+    where: { vendorId: travelAgencyVendor.id },
+    update: {
+      vendorCategory: "TRAVEL_AGENCY",
+      serviceStates: ["TX", "NY", "AZ"],
+      serviceCities: ["Dallas", "New York", "Phoenix"],
+      monthlyBidLimit: 100,
+      bidsUsedThisMonth: 17,
+      averageSavings: 12.4
+    },
+    create: {
+      vendorId: travelAgencyVendor.id,
+      vendorCategory: "TRAVEL_AGENCY",
+      serviceStates: ["TX", "NY", "AZ"],
+      serviceCities: ["Dallas", "New York", "Phoenix"],
+      apiEnabled: false,
+      manualBidEnabled: true,
+      verificationStatus: "APPROVED",
+      averageResponseTime: 9.5,
+      averageSavings: 12.4,
+      bookingCompletionRate: 0.93,
+      chargebackRiskScore: 0.12,
+      rating: 4.7,
+      monthlyBidLimit: 100,
+      bidsUsedThisMonth: 17
+    }
+  });
+
+  const mobilityRequest = await prisma.mobilityRequest.create({
+    data: {
+      candidateId: candidate.id,
+      agencyId: agency.id,
+      assignmentId: assignment.id,
+      offerId: offer.id,
+      createdByUserId: recruiter.id,
+      requestType: "FLIGHT",
+      originCity: "Dallas",
+      originState: "TX",
+      originAirport: "DFW",
+      destinationCity: "New York",
+      destinationState: "NY",
+      destinationAirport: "LGA",
+      assignmentCity: "New York",
+      assignmentState: "NY",
+      facilityName: "Metro Health Downtown",
+      startDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 12),
+      budgetMin: 300,
+      budgetMax: 520,
+      baggageNeeded: true,
+      checkedBags: 1,
+      urgencyLevel: "HIGH",
+      status: "OPEN_FOR_BIDS",
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 18)
+    }
+  });
+
+  const mobilityBid = await prisma.mobilityBid.create({
+    data: {
+      mobilityRequestId: mobilityRequest.id,
+      vendorId: travelAgencyVendor.id,
+      vendorUserId: travelAgencyUser.id,
+      bidType: "FLIGHT",
+      packageName: "Nonstop + 1 checked bag",
+      vendorName: "Orbit Global Travel",
+      totalPrice: 344,
+      taxesAndFees: 36,
+      platformFee: 11,
+      estimatedSavings: 58,
+      airlineName: "Delta",
+      flightNumber: "DL1432",
+      departureAirport: "DFW",
+      arrivalAirport: "LGA",
+      departureTime: new Date(Date.now() + 1000 * 60 * 60 * 24 * 9),
+      arrivalTime: new Date(Date.now() + 1000 * 60 * 60 * 24 * 9 + 1000 * 60 * 60 * 3),
+      stops: 0,
+      baggageIncluded: 1,
+      bidScore: 92,
+      conciergeRecommended: true,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 12),
+      status: "SHORTLISTED"
+    }
+  });
+
+  const mobilityBooking = await prisma.mobilityBooking.create({
+    data: {
+      mobilityRequestId: mobilityRequest.id,
+      acceptedBidId: mobilityBid.id,
+      candidateId: candidate.id,
+      agencyId: agency.id,
+      vendorId: travelAgencyVendor.id,
+      assignmentId: assignment.id,
+      createdByUserId: recruiter.id,
+      bookingReference: `ORBSEED-${Date.now().toString().slice(-6)}`,
+      bookingStatus: "CONFIRMED",
+      paymentResponsibility: "AGENCY",
+      amount: 344,
+      platformFee: 11,
+      vendorPayout: 333
+    }
+  });
+
+  const candidateWalletV2 = await prisma.wallet.create({
+    data: {
+      ownerType: "CANDIDATE",
+      ownerId: candidate.id,
+      candidateId: candidate.id,
+      agencyId: agency.id,
+      balance: 460
+    }
+  });
+
+  const walletCredit = await prisma.walletCredit.create({
+    data: {
+      walletId: candidateWalletV2.id,
+      agencyId: agency.id,
+      candidateId: candidate.id,
+      assignmentId: assignment.id,
+      creditType: "FLIGHT",
+      amount: 300,
+      usedAmount: 180,
+      status: "PARTIALLY_USED",
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 25)
+    }
+  });
+
+  await prisma.walletTransaction.createMany({
+    data: [
+      {
+        walletId: candidateWalletV2.id,
+        walletCreditId: walletCredit.id,
+        agencyId: agency.id,
+        candidateId: candidate.id,
+        type: "CREDIT_ADDED",
+        amount: 300,
+        description: "Agency-sponsored flight credit"
+      },
+      {
+        walletId: candidateWalletV2.id,
+        walletCreditId: walletCredit.id,
+        agencyId: agency.id,
+        candidateId: candidate.id,
+        vendorId: travelAgencyVendor.id,
+        type: "CREDIT_USED",
+        amount: 180,
+        description: "Credit used toward accepted mobility booking"
+      }
+    ]
+  });
+
+  const comparisonV2 = await prisma.offerComparisonV2.create({
+    data: {
+      candidateId: candidate.id,
+      agencyId: agency.id,
+      assignmentId: assignment.id,
+      offerId: offer.id,
+      title: "Dallas vs Phoenix ICU",
+      comparisonStatus: "ANALYZED",
+      aiSummary: "Dallas assignment has better readiness support and lower relocation risk.",
+      bestOfferId: offer.id,
+      disclaimerAccepted: true
+    }
+  });
+
+  const externalOffer = await prisma.externalOffer.create({
+    data: {
+      comparisonId: comparisonV2.id,
+      sourceAgencyName: "RapidCare Staffing",
+      weeklyPay: 2920,
+      taxableRate: 60,
+      stipend: 1000,
+      estimatedGross: 3920,
+      locationCity: "Phoenix",
+      locationState: "AZ",
+      facilityName: "Phoenix Heart Center",
+      duration: 13,
+      shift: "Nights",
+      housingIncluded: false,
+      travelIncluded: true,
+      notes: "No dedicated first-week support"
+    }
+  });
+
+  await prisma.offerComparisonResult.createMany({
+    data: [
+      {
+        comparisonId: comparisonV2.id,
+        offerId: offer.id,
+        netValueScore: 91.5,
+        lifestyleScore: 87.2,
+        mobilityScore: 93.4,
+        riskScore: 21.4,
+        costOfLivingEstimate: 1.08,
+        recommendation: "Best overall assignment experience",
+        aiReasoning: "Better mobility and first-week support offset a small pay delta."
+      },
+      {
+        comparisonId: comparisonV2.id,
+        externalOfferId: externalOffer.id,
+        netValueScore: 86.4,
+        lifestyleScore: 72.5,
+        mobilityScore: 68.3,
+        riskScore: 38.7,
+        costOfLivingEstimate: 1.05,
+        recommendation: "Higher headline pay but weaker readiness support",
+        aiReasoning: "Increased uncertainty around housing and onboarding logistics."
+      }
+    ]
+  });
+
+  const firstWeekGuide = await prisma.firstWeekGuide.create({
+    data: {
+      assignmentId: assignment.id,
+      candidateId: candidate.id,
+      agencyId: agency.id,
+      facilityParkingInfo: "Lot C after 6am, badge scan required.",
+      firstDayInstructions: "Arrive 45 minutes early, bring credentials and onboarding packet.",
+      nearestGrocery: "Fresh Market on Oak St",
+      nearestPharmacy: "24/7 MedCare Pharmacy",
+      nearestUrgentCare: "City urgent care 2.1 miles away",
+      localTransportationTips: "Best route uses I-35 express lane after 6:30am.",
+      weatherSummary: "Expect warm days and storm risk after 5pm.",
+      safetyNotes: "Use lit staff parking zones for evening shifts.",
+      emergencyContacts: "Recruiter +1 555 0142, Concierge +1 555 0198",
+      firstWeekConfidenceScore: 89,
+      generatedByAI: false
+    }
+  });
+
+  await prisma.firstWeekChecklistItem.createMany({
+    data: [
+      {
+        guideId: firstWeekGuide.id,
+        title: "Confirm housing check-in time",
+        category: "HOUSING",
+        completed: true
+      },
+      {
+        guideId: firstWeekGuide.id,
+        title: "Upload emergency contact details",
+        category: "READINESS",
+        completed: false
+      },
+      {
+        guideId: firstWeekGuide.id,
+        title: "Verify first-day commute route",
+        category: "TRANSPORT",
+        completed: true
+      }
+    ]
+  });
+
+  await prisma.relocationPlan.create({
+    data: {
+      candidateId: candidate.id,
+      assignmentId: assignment.id,
+      originCity: "Dallas",
+      originState: "TX",
+      destinationCity: "New York",
+      destinationState: "NY",
+      moveTimeline: "Day -14 lock housing, Day -7 finalize travel, Day -2 checklist review",
+      cityOrientation: "Primary essentials are concentrated within 3 miles of facility.",
+      weatherExpectations: "Mild mornings and occasional showers.",
+      packingChecklist: "Layered scrubs, light jacket, onboarding folder.",
+      housingGuidance: "Prioritize furnished units under 25-minute commute.",
+      transportationGuidance: "Use rental car for first 3 days before transit pass activation.",
+      firstWeekPreparation: "Confirm parking badge and pharmacy locations.",
+      risks: "Traffic surge around shift change windows.",
+      nextBestActions: "Finalize check-in confirmation and backup transport plan.",
+      generatedByAI: true
+    }
+  });
+
+  const intelligence = await prisma.offerIntelligence.create({
+    data: {
+      offerId: offer.id,
+      candidateId: candidate.id,
+      assignmentId: assignment.id,
+      agencyId: agency.id,
+      closeProbability: 0.72,
+      engagementScore: 0.81,
+      mobilityFrictionScore: 0.36,
+      payCompetitivenessScore: 0.67,
+      urgencyScore: 0.84,
+      recommendedAction: "Offer emergency housing backup and flight credit for final confidence.",
+      recommendedSMS: "We can secure your first week with backup housing and travel credit today.",
+      recommendedEmail: "Your assignment launch plan is ready with full mobility support.",
+      recommendedCallScript: "Lead with certainty and first-week readiness safeguards."
+    }
+  });
+
+  await prisma.offerOutreachLog.create({
+    data: {
+      offerId: offer.id,
+      offerIntelligenceId: intelligence.id,
+      actorId: recruiter.id,
+      channel: "SMS",
+      message: "Shared first-week support package and travel credit details.",
+      actionCompleted: true
+    }
+  });
+
+  await prisma.vendorVerification.create({
+    data: {
+      vendorId: travelAgencyVendor.id,
+      documentType: "Business License",
+      documentUrl: "https://example.com/docs/travel-license.pdf",
+      status: "APPROVED",
+      reviewedById: superAdmin.id,
+      reviewedAt: new Date(),
+      notes: "Verified for assignment-based travel bidding."
+    }
+  });
+
+  await prisma.dispute.create({
+    data: {
+      bookingId: mobilityBooking.id,
+      raisedByUserId: candidateUser.id,
+      disputeType: "ScheduleChange",
+      description: "Departure window changed after acceptance; requesting review.",
+      status: "UNDER_REVIEW"
+    }
+  });
+
+  const partnerListing = await prisma.partnerHousingListing.create({
+    data: {
+      vendorId: housingVendor.id,
+      agencyId: agency.id,
+      propertyType: "Furnished Apartment",
+      furnished: true,
+      monthlyCost: 2350,
+      deposit: 500,
+      utilitiesIncluded: true,
+      leaseFlexibility: "Month-to-month after first month",
+      petFriendly: true,
+      parking: true,
+      distanceToFacility: 2.8,
+      safetyNotes: "Gated access and 24-hour security desk.",
+      verificationStatus: "APPROVED"
+    }
+  });
+
+  await prisma.housingInquiry.create({
+    data: {
+      listingId: partnerListing.id,
+      candidateId: candidate.id,
+      agencyId: agency.id,
+      vendorId: housingVendor.id,
+      message: "Can this unit support move-in 5 days before assignment start?",
+      status: "OPEN"
+    }
+  });
+
+  await prisma.clinicianSubscription.upsert({
+    where: { candidateId: candidate.id },
+    update: {
+      agencyId: agency.id,
+      status: "ACTIVE",
+      planName: "ORBIT_PLUS_MONTHLY",
+      annualPlan: false,
+      periodEndsAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30)
+    },
+    create: {
+      candidateId: candidate.id,
+      agencyId: agency.id,
+      status: "ACTIVE",
+      planName: "ORBIT_PLUS_MONTHLY",
+      annualPlan: false,
+      periodEndsAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30)
+    }
+  });
+
+  for (let i = 1; i <= 10; i += 1) {
+    await prisma.agency.upsert({
+      where: { slug: `demo-agency-${i}` },
+      update: {},
+      create: {
+        name: `Demo Agency ${i}`,
+        slug: `demo-agency-${i}`,
+        ownerId: agencyOwner.id
+      }
+    });
+  }
+
   await prisma.lead.create({
     data: {
       source: LeadSource.PRICING,

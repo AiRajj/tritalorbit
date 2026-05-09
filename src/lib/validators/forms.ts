@@ -36,7 +36,13 @@ export const registerSchema = z.object({
     "CONCIERGE_MANAGER",
     "MSP_VIEWER",
     "CANDIDATE",
-    "VENDOR_LANDLORD"
+    "VENDOR_LANDLORD",
+    "TRAVEL_AGENCY_VENDOR",
+    "HOUSING_PROVIDER",
+    "HOTEL_PARTNER",
+    "CAR_RENTAL_PARTNER",
+    "RELOCATION_PARTNER",
+    "FINANCE_BILLING_ADMIN"
   ])
 });
 

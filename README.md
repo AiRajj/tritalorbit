@@ -1,6 +1,6 @@
 # TRITAL Orbit™
 
-Healthcare Workforce Mobility Infrastructure.
+Healthcare Workforce Mobility Cloud.
 
 **Tagline:** Win more clinicians. Reduce backouts. Improve assignment readiness.
 
@@ -25,15 +25,40 @@ TRITAL Orbit™ is a production-ready B2B2C SaaS platform for healthcare staffin
 ### Marketing Site (Functional)
 - `/`
 - `/platform`
+- `/mobility-exchange`
+- `/healthcare-workforce-mobility-cloud`
 - `/solutions/agencies`
 - `/solutions/msps`
 - `/solutions/clinicians`
+- `/solutions/travel-agencies`
+- `/solutions/housing-providers`
+- `/solutions/relocation-vendors`
+- `/solutions/car-rental-partners`
+- `/solutions/hotel-partners`
+- `/solutions/health-systems`
+- `/partners`
+- `/partners/travel-agencies`
+- `/partners/housing-providers`
+- `/partners/relocation-vendors`
+- `/trust`
+- `/security`
+- `/vendor-verification`
+- `/assignment-verification`
 - `/features/offer-boost-builder`
 - `/features/assignment-launch-dashboard`
 - `/features/retention-risk-ai`
 - `/features/mobility-concierge`
 - `/pricing`
+- `/pricing/clinicians`
+- `/pricing/agencies`
+- `/pricing/vendors`
+- `/pricing/msps`
 - `/demo`
+- `/demo/live-platform`
+- `/demo/clinician-story`
+- `/demo/recruiter-story`
+- `/demo/vendor-story`
+- `/demo/msp-story`
 - `/contact`
 - `/privacy`
 - `/terms`
@@ -57,6 +82,13 @@ All lead/demo/contact forms are wired to database-backed API handlers.
 - `/vendor/dashboard`
 - `/msp`
 
+Expanded Phase-2 dashboard surfaces:
+- Candidate: `/candidate/first-week`, `/candidate/relocation-assistant`, `/candidate/orbit-plus`
+- Agency: `/agency/mobility`, `/agency/offer-war-room`, `/agency/first-week-readiness`, `/agency/relocation-insights`
+- Vendor: `/vendor/bid-center`, `/vendor/travel-agency/*`, `/vendor/housing/*`
+- MSP: `/msp/roi`, `/msp/supplier-performance`, `/msp/mobility-utilization`, `/msp/executive-report`
+- Admin: `/admin/mobility-exchange`, `/admin/disputes`, `/admin/vendor-verification`, `/admin/wallet`
+
 Includes sidebar navigation, topbar search, notifications pattern, profile, loading/error handling patterns, and responsive layouts.
 
 ### Core Product Modules
@@ -76,19 +108,28 @@ Includes sidebar navigation, topbar search, notifications pattern, profile, load
 - `/api/ai/readiness`
 - `/api/ai/concierge`
 - `/api/ai/msp-report`
+- `/api/ai/mobility-bid-ranker`
+- `/api/ai/offer-comparison`
+- `/api/ai/relocation-assistant`
+- `/api/ai/vendor-risk`
+- `/api/ai/wallet-optimizer`
+- `/api/ai/msp-roi`
 
 If `OPENAI_API_KEY` is missing, endpoints return professional fallback mock responses.
 
-### Automation Workflows
-Implemented service and API workflows for:
-1. Offer viewed activity logging
-2. 2-hour non-view alert detection (`/api/automation/run`)
-3. Housing viewed without acceptance AI follow-up signal
-4. Booking request triggers concierge task
-5. Start date proximity + missing housing escalation
-6. Offer accepted triggers readiness checklist bootstrap
-7. Risk score > 75 urgent recruiter notification
-8. Concierge task completion candidate update generation
+### Automation + Integration Workflows
+Automation modules under `src/lib/automation`:
+- `mobility.ts`, `wallet.ts`, `risk.ts`, `rewards.ts`, `mspReports.ts`, `vendor.ts`, `firstWeek.ts`
+
+Integration abstraction modules under `src/lib/integrations`:
+- Flights: Amadeus, Duffel, Skyscanner + mock fallback
+- Hotels: Booking, Expedia + mock fallback
+- Maps and weather + mock fallback
+- Stripe/Stripe Connect + mock fallback
+- Resend/Twilio + mock fallback
+- OpenAI-compatible AI integration + mock fallback
+
+All integrations are env-gated and safely fall back to typed mock responses when provider keys are absent.
 
 ## Data Model
 Comprehensive Prisma schema includes:
@@ -119,6 +160,16 @@ Comprehensive Prisma schema includes:
 - DemoRequest
 
 Includes UUIDs, status enums, timestamps, ownership patterns, and audit relationships.
+
+Phase-2 additions include:
+- Mobility Exchange v2 (`MobilityRequest`, `MobilityBid`, `MobilityBooking`, `VendorBidProfile`)
+- Wallet v2 (`Wallet`, `WalletCredit`, `WalletTransaction`)
+- Offer comparison v2 (`OfferComparisonV2`, `ExternalOffer`, `OfferComparisonResult`)
+- First-week + relocation (`FirstWeekGuide`, `FirstWeekChecklistItem`, `RelocationPlan`)
+- Offer intelligence (`OfferIntelligence`, `OfferOutreachLog`)
+- Trust/compliance (`VendorVerification`, `Dispute`)
+- Partner supply (`PartnerHousingListing`, `HousingInquiry`)
+- Orbit Plus subscriptions (`ClinicianSubscription`)
 
 ## Quick Start
 

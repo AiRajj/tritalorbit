@@ -13,7 +13,13 @@ const roleLabelMap: Record<Role, string> = {
   CONCIERGE_MANAGER: "Concierge",
   MSP_VIEWER: "MSP Viewer",
   CANDIDATE: "Candidate",
-  VENDOR_LANDLORD: "Vendor / Landlord"
+  VENDOR_LANDLORD: "Vendor / Landlord",
+  TRAVEL_AGENCY_VENDOR: "Travel Agency Vendor",
+  HOUSING_PROVIDER: "Housing Provider",
+  HOTEL_PARTNER: "Hotel Partner",
+  CAR_RENTAL_PARTNER: "Car Rental Partner",
+  RELOCATION_PARTNER: "Relocation Partner",
+  FINANCE_BILLING_ADMIN: "Finance / Billing Admin"
 };
 
 export function DashboardShell({

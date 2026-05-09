@@ -10,18 +10,25 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-slate-200/60 bg-white/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-2">
-          <span className="rounded-lg bg-orbit-gradient p-2 text-white">
+          <span className="rounded-lg bg-orbit-aurora p-2 text-white shadow-glow">
             <Orbit className="h-4 w-4" />
           </span>
-          <span className="text-sm font-semibold text-slate-900">TRITAL Orbit™</span>
+          <div>
+            <span className="text-sm font-semibold text-slate-900">TRITAL Orbit™</span>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Mobility Cloud</p>
+          </div>
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">
           {marketingNav.map((item) => (
-            <Link key={item.href} href={item.href} className="text-sm text-slate-600 transition hover:text-slate-900">
+            <Link
+              key={item.href}
+              href={item.href}
+              className="text-sm font-medium text-slate-600 transition hover:text-slate-900"
+            >
               {item.label}
             </Link>
           ))}
@@ -32,7 +39,7 @@ export function SiteHeader() {
             <Link href="/login">Login</Link>
           </Button>
           <Button asChild>
-            <Link href="/demo">Book Demo</Link>
+            <Link href="/demo/live-platform">Book Demo</Link>
           </Button>
         </div>
 
@@ -60,7 +67,7 @@ export function SiteHeader() {
               </Link>
             ))}
             <Button asChild className="mt-2">
-              <Link href="/demo">Book Demo</Link>
+              <Link href="/demo/live-platform">Book Demo</Link>
             </Button>
           </div>
         </div>

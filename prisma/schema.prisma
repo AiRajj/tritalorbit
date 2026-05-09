@@ -15,6 +15,12 @@ enum Role {
   MSP_VIEWER
   CANDIDATE
   VENDOR_LANDLORD
+  TRAVEL_AGENCY_VENDOR
+  HOUSING_PROVIDER
+  HOTEL_PARTNER
+  CAR_RENTAL_PARTNER
+  RELOCATION_PARTNER
+  FINANCE_BILLING_ADMIN
 }
 
 enum OfferStatus {
@@ -171,6 +177,133 @@ enum RewardRedemptionStatus {
   CANCELLED
 }
 
+enum MobilityRequestType {
+  FLIGHT
+  HOUSING
+  CAR_RENTAL
+  HOTEL
+  FULL_RELOCATION_PACKAGE
+}
+
+enum UrgencyLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum MobilityRequestWorkflowStatus {
+  DRAFT
+  OPEN_FOR_BIDS
+  REVIEWING
+  BID_ACCEPTED
+  EXPIRED
+  CANCELLED
+  COMPLETED
+}
+
+enum MobilityBidType {
+  FLIGHT
+  HOUSING
+  CAR_RENTAL
+  HOTEL
+  FULL_PACKAGE
+}
+
+enum MobilityBidWorkflowStatus {
+  SUBMITTED
+  SHORTLISTED
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  WITHDRAWN
+}
+
+enum MobilityBookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  REFUNDED
+  DISPUTED
+}
+
+enum PaymentResponsibility {
+  CANDIDATE
+  AGENCY
+  SHARED
+  WALLET_CREDIT
+}
+
+enum VendorCategory {
+  TRAVEL_AGENCY
+  HOUSING_PROVIDER
+  CAR_RENTAL
+  HOTEL
+  RELOCATION_VENDOR
+}
+
+enum WalletOwnerType {
+  CANDIDATE
+  AGENCY
+  VENDOR
+}
+
+enum WalletStatus {
+  ACTIVE
+  FROZEN
+  CLOSED
+}
+
+enum WalletCreditType {
+  FLIGHT
+  HOUSING
+  HOTEL
+  CAR_RENTAL
+  RELOCATION
+  EMERGENCY
+  GENERAL
+}
+
+enum WalletCreditStatus {
+  ACTIVE
+  USED
+  PARTIALLY_USED
+  EXPIRED
+  CANCELLED
+}
+
+enum WalletTransactionType {
+  CREDIT_ADDED
+  CREDIT_USED
+  REFUND
+  VENDOR_PAYOUT
+  PLATFORM_FEE
+  ADJUSTMENT
+}
+
+enum VerificationReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  NEEDS_REVIEW
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum ClinicianSubscriptionStatus {
+  ACTIVE
+  CANCELED
+  TRIALING
+  PAST_DUE
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -183,24 +316,29 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  agenciesOwned            Agency[]                @relation("AgencyOwner")
-  memberships              AgencyMember[]
-  candidate                Candidate?
-  vendors                  Vendor[]
-  landlords                Landlord[]
-  offersCreated            Offer[]                 @relation("RecruiterOffers")
-  conciergeTasks           ConciergeTask[]         @relation("ConciergeTaskOwner")
-  notifications            Notification[]
-  activityLogs             ActivityLog[]
-  auditLogs                AuditLog[]
-  mspReports               MSPReport[]
-  travelBidRequestsCreated TravelBidRequest[]      @relation("TravelRequestCreator")
-  travelBidsSubmitted      TravelBid[]             @relation("TravelBidSubmitter")
-  walletEntriesCreated     WalletLedgerEntry[]     @relation("WalletEntryCreator")
-  uploadedExternalOffers   ExternalOfferDocument[] @relation("ExternalOfferUploader")
-  createdOfferComparisons  OfferComparison[]       @relation("OfferComparisonCreator")
-  awardedRewardEvents      RewardEvent[]           @relation("RewardEventAwarder")
-  requestedRedemptions     RewardRedemption[]      @relation("RewardRedemptionRequester")
+  agenciesOwned               Agency[]                @relation("AgencyOwner")
+  memberships                 AgencyMember[]
+  candidate                   Candidate?
+  vendors                     Vendor[]
+  landlords                   Landlord[]
+  offersCreated               Offer[]                 @relation("RecruiterOffers")
+  conciergeTasks              ConciergeTask[]         @relation("ConciergeTaskOwner")
+  notifications               Notification[]
+  activityLogs                ActivityLog[]
+  auditLogs                   AuditLog[]
+  mspReports                  MSPReport[]
+  travelBidRequestsCreated    TravelBidRequest[]      @relation("TravelRequestCreator")
+  travelBidsSubmitted         TravelBid[]             @relation("TravelBidSubmitter")
+  walletEntriesCreated        WalletLedgerEntry[]     @relation("WalletEntryCreator")
+  uploadedExternalOffers      ExternalOfferDocument[] @relation("ExternalOfferUploader")
+  createdOfferComparisons     OfferComparison[]       @relation("OfferComparisonCreator")
+  awardedRewardEvents         RewardEvent[]           @relation("RewardEventAwarder")
+  requestedRedemptions        RewardRedemption[]      @relation("RewardRedemptionRequester")
+  mobilityRequestsCreated     MobilityRequest[]       @relation("MobilityRequestCreator")
+  mobilityBidsSubmittedV2     MobilityBid[]           @relation("MobilityBidUser")
+  mobilityBookingsCreated     MobilityBooking[]       @relation("MobilityBookingCreator")
+  vendorVerificationsReviewed VendorVerification[]    @relation("VendorVerificationReviewer")
+  disputesRaised              Dispute[]               @relation("DisputeRaiser")
 
   accounts Account[]
   sessions Session[]
@@ -216,23 +354,35 @@ model Agency {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  owner               User                @relation("AgencyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  members             AgencyMember[]
-  candidates          Candidate[]
-  assignments         Assignment[]
-  offers              Offer[]
-  bookingRequests     BookingRequest[]
-  conciergeTasks      ConciergeTask[]
-  activityLogs        ActivityLog[]
-  subscriptionPlans   SubscriptionPlan[]
-  paymentRecords      PaymentRecord[]
-  mspReports          MSPReport[]
-  auditLogs           AuditLog[]
-  travelBidRequests   TravelBidRequest[]
-  walletAccount       WalletAccount?
-  walletLedgerEntries WalletLedgerEntry[]
-  rewardEvents        RewardEvent[]
-  rewardRedemptions   RewardRedemption[]
+  owner                  User                    @relation("AgencyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members                AgencyMember[]
+  candidates             Candidate[]
+  assignments            Assignment[]
+  offers                 Offer[]
+  bookingRequests        BookingRequest[]
+  conciergeTasks         ConciergeTask[]
+  activityLogs           ActivityLog[]
+  subscriptionPlans      SubscriptionPlan[]
+  paymentRecords         PaymentRecord[]
+  mspReports             MSPReport[]
+  auditLogs              AuditLog[]
+  travelBidRequests      TravelBidRequest[]
+  walletAccount          WalletAccount?
+  walletLedgerEntries    WalletLedgerEntry[]
+  rewardEvents           RewardEvent[]
+  rewardRedemptions      RewardRedemption[]
+  mobilityRequestsV2     MobilityRequest[]
+  mobilityBookingsV2     MobilityBooking[]
+  offerComparisonsV2     OfferComparisonV2[]
+  walletsV2              Wallet[]
+  walletCreditsV2        WalletCredit[]
+  walletTransactionsV2   WalletTransaction[]
+  firstWeekGuides        FirstWeekGuide[]
+  offerIntelligence      OfferIntelligence[]
+  partnerHousingListings PartnerHousingListing[]
+  housingInquiries       HousingInquiry[]
+  disputes               Dispute[]
+  clinicianSubscriptions ClinicianSubscription[]
 }
 
 model AgencyMember {
@@ -266,24 +416,35 @@ model Candidate {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  user                User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
-  agency              Agency                  @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  offers              Offer[]
-  assignments         Assignment[]
-  bookingRequests     BookingRequest[]
-  retentionRiskScores RetentionRiskScore[]
-  documentVault       DocumentVault[]
-  aiInsights          AIInsight[]
-  activityLogs        ActivityLog[]
-  conciergeTasks      ConciergeTask[]
-  travelBidRequests   TravelBidRequest[]
-  walletAccount       WalletAccount?
-  walletLedgerEntries WalletLedgerEntry[]
-  externalOffers      ExternalOfferDocument[]
-  offerComparisons    OfferComparison[]
-  rewardsAccount      RewardsAccount?
-  rewardEvents        RewardEvent[]
-  rewardRedemptions   RewardRedemption[]
+  user                  User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  agency                Agency                  @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  offers                Offer[]
+  assignments           Assignment[]
+  bookingRequests       BookingRequest[]
+  retentionRiskScores   RetentionRiskScore[]
+  documentVault         DocumentVault[]
+  aiInsights            AIInsight[]
+  activityLogs          ActivityLog[]
+  conciergeTasks        ConciergeTask[]
+  travelBidRequests     TravelBidRequest[]
+  walletAccount         WalletAccount?
+  walletLedgerEntries   WalletLedgerEntry[]
+  externalOffers        ExternalOfferDocument[]
+  offerComparisons      OfferComparison[]
+  rewardsAccount        RewardsAccount?
+  rewardEvents          RewardEvent[]
+  rewardRedemptions     RewardRedemption[]
+  mobilityRequestsV2    MobilityRequest[]
+  mobilityBookingsV2    MobilityBooking[]
+  offerComparisonsV2    OfferComparisonV2[]
+  relocationPlans       RelocationPlan[]
+  firstWeekGuides       FirstWeekGuide[]
+  offerIntelligence     OfferIntelligence[]
+  clinicianSubscription ClinicianSubscription?
+  walletsV2             Wallet[]
+  walletCreditsV2       WalletCredit[]
+  walletTransactionsV2  WalletTransaction[]
+  housingInquiries      HousingInquiry[]
 }
 
 model Assignment {
@@ -320,6 +481,13 @@ model Assignment {
   retentionRiskScores RetentionRiskScore[]
   aiInsights          AIInsight[]
   travelBidRequests   TravelBidRequest[]
+  mobilityRequestsV2  MobilityRequest[]
+  mobilityBookingsV2  MobilityBooking[]
+  firstWeekGuides     FirstWeekGuide[]
+  relocationPlans     RelocationPlan[]
+  offerIntelligence   OfferIntelligence[]
+  walletCredits       WalletCredit[]
+  offerComparisonV2s  OfferComparisonV2[]
 }
 
 model Offer {
@@ -363,6 +531,10 @@ model Offer {
   travelBidRequests   TravelBidRequest[]
   comparisonEntries   OfferComparisonEntry[] @relation("ComparisonEntryInternalOffer")
   primaryComparisons  OfferComparison[]      @relation("ComparisonPrimaryOffer")
+  mobilityRequestsV2  MobilityRequest[]
+  offerComparisonsV2  OfferComparisonV2[]
+  offerIntelligence   OfferIntelligence[]
+  outreachLogs        OfferOutreachLog[]
 }
 
 model OfferPerk {
@@ -632,11 +804,20 @@ model Vendor {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
-  owner            User?             @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  housingOptions   HousingOption[]
-  travelOptions    TravelOption[]
-  carRentalOptions CarRentalOption[]
-  travelBids       TravelBid[]
+  owner                  User?                   @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  housingOptions         HousingOption[]
+  travelOptions          TravelOption[]
+  carRentalOptions       CarRentalOption[]
+  travelBids             TravelBid[]
+  mobilityBidsV2         MobilityBid[]
+  mobilityBookingsV2     MobilityBooking[]
+  bidProfile             VendorBidProfile?
+  verifications          VendorVerification[]
+  partnerHousingListings PartnerHousingListing[]
+  housingInquiries       HousingInquiry[]
+  walletsV2              Wallet[]
+  walletTransactionsV2   WalletTransaction[]
+  disputes               Dispute[]
 }
 
 model Landlord {
@@ -877,6 +1058,495 @@ model RewardRedemption {
 
   @@index([candidateId, status])
   @@index([agencyId, requestedAt])
+}
+
+model MobilityRequest {
+  id                      String                        @id @default(uuid())
+  candidateId             String
+  agencyId                String
+  assignmentId            String
+  offerId                 String?
+  createdByUserId         String?
+  requestType             MobilityRequestType
+  originCity              String?
+  originState             String?
+  originAirport           String?
+  destinationCity         String?
+  destinationState        String?
+  destinationAirport      String?
+  assignmentCity          String
+  assignmentState         String
+  facilityName            String
+  moveDate                DateTime?
+  startDate               DateTime
+  endDate                 DateTime?
+  budgetMin               Decimal?                      @db.Decimal(10, 2)
+  budgetMax               Decimal?                      @db.Decimal(10, 2)
+  preferredAirline        String?
+  baggageNeeded           Boolean                       @default(false)
+  checkedBags             Int                           @default(0)
+  housingNeeded           Boolean                       @default(false)
+  carNeeded               Boolean                       @default(false)
+  hotelNeeded             Boolean                       @default(false)
+  petFriendly             Boolean                       @default(false)
+  accessibilityNeeds      String?
+  preferredCommuteMinutes Int?
+  notes                   String?
+  urgencyLevel            UrgencyLevel                  @default(MEDIUM)
+  status                  MobilityRequestWorkflowStatus @default(DRAFT)
+  expiresAt               DateTime
+  createdAt               DateTime                      @default(now())
+  updatedAt               DateTime                      @updatedAt
+
+  candidate  Candidate         @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  agency     Agency            @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  assignment Assignment        @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  offer      Offer?            @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  createdBy  User?             @relation("MobilityRequestCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  bids       MobilityBid[]
+  bookings   MobilityBooking[]
+
+  @@index([agencyId, status])
+  @@index([candidateId, expiresAt])
+}
+
+model MobilityBid {
+  id                        String                    @id @default(uuid())
+  mobilityRequestId         String
+  vendorId                  String
+  vendorUserId              String?
+  bidType                   MobilityBidType
+  packageName               String
+  vendorName                String
+  totalPrice                Decimal                   @db.Decimal(10, 2)
+  taxesAndFees              Decimal                   @default(0) @db.Decimal(10, 2)
+  platformFee               Decimal                   @default(0) @db.Decimal(10, 2)
+  estimatedSavings          Decimal                   @default(0) @db.Decimal(10, 2)
+  airlineName               String?
+  flightNumber              String?
+  departureAirport          String?
+  arrivalAirport            String?
+  departureTime             DateTime?
+  arrivalTime               DateTime?
+  stops                     Int                       @default(0)
+  baggageIncluded           Int                       @default(0)
+  housingAddress            String?
+  housingDistanceToFacility Float?
+  housingMonthlyCost        Decimal?                  @db.Decimal(10, 2)
+  leaseFlexibility          String?
+  carRentalCompany          String?
+  carClass                  String?
+  hotelName                 String?
+  nightlyRate               Decimal?                  @db.Decimal(10, 2)
+  cancellationPolicy        String?
+  refundability             String?
+  includedServices          Json?
+  notes                     String?
+  bidScore                  Float                     @default(0)
+  conciergeRecommended      Boolean                   @default(false)
+  expiresAt                 DateTime
+  status                    MobilityBidWorkflowStatus @default(SUBMITTED)
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @updatedAt
+
+  mobilityRequest MobilityRequest   @relation(fields: [mobilityRequestId], references: [id], onDelete: Cascade)
+  vendor          Vendor            @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendorUser      User?             @relation("MobilityBidUser", fields: [vendorUserId], references: [id], onDelete: SetNull)
+  bookings        MobilityBooking[]
+
+  @@index([vendorId, status])
+  @@index([mobilityRequestId, bidScore])
+}
+
+model MobilityBooking {
+  id                    String                @id @default(uuid())
+  mobilityRequestId     String
+  acceptedBidId         String
+  candidateId           String
+  agencyId              String
+  vendorId              String
+  assignmentId          String
+  createdByUserId       String?
+  bookingReference      String                @unique
+  bookingStatus         MobilityBookingStatus @default(PENDING_PAYMENT)
+  paymentResponsibility PaymentResponsibility
+  amount                Decimal               @db.Decimal(10, 2)
+  platformFee           Decimal               @default(0) @db.Decimal(10, 2)
+  vendorPayout          Decimal               @default(0) @db.Decimal(10, 2)
+  bookingNotes          String?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  mobilityRequest MobilityRequest @relation(fields: [mobilityRequestId], references: [id], onDelete: Cascade)
+  acceptedBid     MobilityBid     @relation(fields: [acceptedBidId], references: [id], onDelete: Cascade)
+  candidate       Candidate       @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  agency          Agency          @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  vendor          Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  assignment      Assignment      @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  createdBy       User?           @relation("MobilityBookingCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  disputes        Dispute[]
+
+  @@index([agencyId, bookingStatus])
+  @@index([candidateId, bookingStatus])
+}
+
+model VendorBidProfile {
+  id                    String                   @id @default(uuid())
+  vendorId              String                   @unique
+  vendorCategory        VendorCategory
+  serviceStates         String[]
+  serviceCities         String[]
+  apiEnabled            Boolean                  @default(false)
+  manualBidEnabled      Boolean                  @default(true)
+  verificationStatus    VerificationReviewStatus @default(PENDING)
+  averageResponseTime   Float                    @default(0)
+  averageSavings        Float                    @default(0)
+  bookingCompletionRate Float                    @default(0)
+  chargebackRiskScore   Float                    @default(0)
+  rating                Float                    @default(0)
+  monthlyBidLimit       Int                      @default(5)
+  bidsUsedThisMonth     Int                      @default(0)
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model Wallet {
+  id          String          @id @default(uuid())
+  ownerType   WalletOwnerType
+  ownerId     String
+  agencyId    String?
+  candidateId String?
+  vendorId    String?
+  balance     Decimal         @default(0) @db.Decimal(12, 2)
+  currency    String          @default("USD")
+  status      WalletStatus    @default(ACTIVE)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  agency       Agency?             @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  candidate    Candidate?          @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  vendor       Vendor?             @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  credits      WalletCredit[]
+  transactions WalletTransaction[]
+
+  @@index([ownerType, ownerId])
+}
+
+model WalletCredit {
+  id           String             @id @default(uuid())
+  walletId     String
+  agencyId     String
+  candidateId  String
+  assignmentId String?
+  creditType   WalletCreditType
+  amount       Decimal            @db.Decimal(12, 2)
+  usedAmount   Decimal            @default(0) @db.Decimal(12, 2)
+  expiresAt    DateTime?
+  status       WalletCreditStatus @default(ACTIVE)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  wallet       Wallet              @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  agency       Agency              @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  candidate    Candidate           @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  assignment   Assignment?         @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  transactions WalletTransaction[]
+
+  @@index([candidateId, status])
+}
+
+model WalletTransaction {
+  id             String                @id @default(uuid())
+  walletId       String
+  walletCreditId String?
+  agencyId       String?
+  candidateId    String?
+  vendorId       String?
+  type           WalletTransactionType
+  amount         Decimal               @db.Decimal(12, 2)
+  referenceType  String?
+  referenceId    String?
+  description    String
+  status         WalletEntryStatus     @default(POSTED)
+  createdAt      DateTime              @default(now())
+
+  wallet       Wallet        @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  walletCredit WalletCredit? @relation(fields: [walletCreditId], references: [id], onDelete: SetNull)
+  agency       Agency?       @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  candidate    Candidate?    @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  vendor       Vendor?       @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  @@index([walletId, createdAt])
+}
+
+model OfferComparisonV2 {
+  id                 String           @id @default(uuid())
+  candidateId        String
+  agencyId           String
+  assignmentId       String?
+  offerId            String?
+  title              String
+  comparisonStatus   ComparisonStatus @default(DRAFT)
+  aiSummary          String?
+  bestOfferId        String?
+  disclaimerAccepted Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  candidate      Candidate               @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  agency         Agency                  @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  assignment     Assignment?             @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  offer          Offer?                  @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  results        OfferComparisonResult[]
+  externalOffers ExternalOffer[]
+
+  @@index([candidateId, comparisonStatus])
+}
+
+model ExternalOffer {
+  id                  String    @id @default(uuid())
+  comparisonId        String
+  sourceAgencyName    String
+  weeklyPay           Decimal   @db.Decimal(10, 2)
+  taxableRate         Decimal?  @db.Decimal(10, 2)
+  stipend             Decimal?  @db.Decimal(10, 2)
+  estimatedGross      Decimal?  @db.Decimal(12, 2)
+  locationCity        String
+  locationState       String
+  facilityName        String?
+  duration            Int?
+  shift               String?
+  startDate           DateTime?
+  housingIncluded     Boolean   @default(false)
+  travelIncluded      Boolean   @default(false)
+  carIncluded         Boolean   @default(false)
+  relocationIncluded  Boolean   @default(false)
+  notes               String?
+  uploadedDocumentUrl String?
+  extractedText       String?
+  createdAt           DateTime  @default(now())
+
+  comparison OfferComparisonV2 @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+}
+
+model OfferComparisonResult {
+  id                   String   @id @default(uuid())
+  comparisonId         String
+  offerId              String?
+  externalOfferId      String?
+  netValueScore        Float
+  lifestyleScore       Float
+  mobilityScore        Float
+  riskScore            Float
+  costOfLivingEstimate Float?
+  housingDifficulty    Float?
+  travelDifficulty     Float?
+  commuteDifficulty    Float?
+  recommendation       String?
+  aiReasoning          String?
+  createdAt            DateTime @default(now())
+
+  comparison OfferComparisonV2 @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+}
+
+model FirstWeekGuide {
+  id                       String   @id @default(uuid())
+  assignmentId             String
+  candidateId              String
+  agencyId                 String
+  facilityParkingInfo      String?
+  firstDayInstructions     String?
+  nearestGrocery           String?
+  nearestPharmacy          String?
+  nearestUrgentCare        String?
+  scrubsNearby             String?
+  localTransportationTips  String?
+  weatherSummary           String?
+  safetyNotes              String?
+  emergencyContacts        String?
+  firstWeekConfidenceScore Int      @default(0)
+  generatedByAI            Boolean  @default(false)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  assignment     Assignment               @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  candidate      Candidate                @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  agency         Agency                   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  checklistItems FirstWeekChecklistItem[]
+}
+
+model FirstWeekChecklistItem {
+  id          String    @id @default(uuid())
+  guideId     String
+  title       String
+  description String?
+  category    String
+  completed   Boolean   @default(false)
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+
+  guide FirstWeekGuide @relation(fields: [guideId], references: [id], onDelete: Cascade)
+}
+
+model RelocationPlan {
+  id                     String   @id @default(uuid())
+  candidateId            String
+  assignmentId           String
+  originCity             String?
+  originState            String?
+  destinationCity        String
+  destinationState       String
+  moveTimeline           String?
+  cityOrientation        String?
+  weatherExpectations    String?
+  packingChecklist       String?
+  housingGuidance        String?
+  transportationGuidance String?
+  firstWeekPreparation   String?
+  risks                  String?
+  nextBestActions        String?
+  generatedByAI          Boolean  @default(false)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  candidate  Candidate  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+}
+
+model OfferIntelligence {
+  id                      String   @id @default(uuid())
+  offerId                 String
+  candidateId             String
+  assignmentId            String
+  agencyId                String
+  closeProbability        Float
+  engagementScore         Float
+  mobilityFrictionScore   Float
+  payCompetitivenessScore Float
+  urgencyScore            Float
+  recommendedAction       String?
+  recommendedSMS          String?
+  recommendedEmail        String?
+  recommendedCallScript   String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  offer        Offer              @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  candidate    Candidate          @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  assignment   Assignment         @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  agency       Agency             @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  outreachLogs OfferOutreachLog[]
+
+  @@index([agencyId, closeProbability])
+}
+
+model OfferOutreachLog {
+  id                  String   @id @default(uuid())
+  offerId             String
+  offerIntelligenceId String?
+  actorId             String?
+  channel             String
+  message             String
+  actionCompleted     Boolean  @default(false)
+  createdAt           DateTime @default(now())
+
+  offer             Offer              @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  offerIntelligence OfferIntelligence? @relation(fields: [offerIntelligenceId], references: [id], onDelete: SetNull)
+}
+
+model VendorVerification {
+  id           String                   @id @default(uuid())
+  vendorId     String
+  documentType String
+  documentUrl  String?
+  status       VerificationReviewStatus @default(PENDING)
+  reviewedById String?
+  reviewedAt   DateTime?
+  notes        String?
+  createdAt    DateTime                 @default(now())
+
+  vendor     Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  reviewedBy User?  @relation("VendorVerificationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+}
+
+model Dispute {
+  id             String        @id @default(uuid())
+  bookingId      String?
+  raisedByUserId String
+  disputeType    String
+  description    String
+  status         DisputeStatus @default(OPEN)
+  resolution     String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  booking  MobilityBooking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  raisedBy User             @relation("DisputeRaiser", fields: [raisedByUserId], references: [id], onDelete: Cascade)
+  agency   Agency?          @relation(fields: [agencyId], references: [id])
+  agencyId String?
+  vendor   Vendor?          @relation(fields: [vendorId], references: [id])
+  vendorId String?
+}
+
+model PartnerHousingListing {
+  id                 String                   @id @default(uuid())
+  vendorId           String
+  agencyId           String?
+  propertyType       String
+  furnished          Boolean                  @default(false)
+  monthlyCost        Decimal                  @db.Decimal(10, 2)
+  deposit            Decimal?                 @db.Decimal(10, 2)
+  utilitiesIncluded  Boolean                  @default(false)
+  leaseFlexibility   String?
+  petFriendly        Boolean                  @default(false)
+  parking            Boolean                  @default(false)
+  distanceToFacility Float?
+  availabilityStart  DateTime?
+  availabilityEnd    DateTime?
+  safetyNotes        String?
+  photosJson         Json?
+  verificationStatus VerificationReviewStatus @default(PENDING)
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  vendor    Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  agency    Agency?          @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  inquiries HousingInquiry[]
+}
+
+model HousingInquiry {
+  id          String   @id @default(uuid())
+  listingId   String
+  candidateId String
+  agencyId    String?
+  vendorId    String?
+  message     String?
+  status      String   @default("OPEN")
+  createdAt   DateTime @default(now())
+
+  listing   PartnerHousingListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  candidate Candidate             @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  agency    Agency?               @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  vendor    Vendor?               @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+}
+
+model ClinicianSubscription {
+  id               String                      @id @default(uuid())
+  candidateId      String                      @unique
+  agencyId         String?
+  status           ClinicianSubscriptionStatus @default(TRIALING)
+  planName         String                      @default("FREE")
+  stripeCustomerId String?
+  stripeSubId      String?
+  periodEndsAt     DateTime?
+  annualPlan       Boolean                     @default(false)
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  agency    Agency?   @relation(fields: [agencyId], references: [id], onDelete: SetNull)
 }
 
 model DocumentVault {
