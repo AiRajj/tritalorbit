@@ -90,6 +90,50 @@ enum AIInsightType {
   MSP_REPORT
 }
 
+enum MobilityRequestStatus {
+  OPEN
+  BID_ACTIVE
+  EXPIRED
+  BOOKED
+  CANCELLED
+}
+
+enum MobilityBidStatus {
+  ACTIVE
+  SELECTED
+  REJECTED
+  EXPIRED
+  WITHDRAWN
+}
+
+enum MobilityPackageType {
+  FLIGHT_ONLY
+  FLIGHT_CAR
+  FLIGHT_HOTEL
+  FULL_RELOCATION
+}
+
+enum WalletAccountType {
+  AGENCY
+  CANDIDATE
+}
+
+enum WalletEntryType {
+  FUNDING
+  CREDIT_GRANT
+  REDEMPTION
+  PAYOUT
+  ADJUSTMENT
+  REFUND
+}
+
+enum WalletEntryStatus {
+  PENDING
+  POSTED
+  REVERSED
+  FAILED
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -102,17 +146,20 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  agenciesOwned  Agency[]        @relation("AgencyOwner")
-  memberships    AgencyMember[]
-  candidate      Candidate?
-  vendors        Vendor[]
-  landlords      Landlord[]
-  offersCreated  Offer[]         @relation("RecruiterOffers")
-  conciergeTasks ConciergeTask[] @relation("ConciergeTaskOwner")
-  notifications  Notification[]
-  activityLogs   ActivityLog[]
-  auditLogs      AuditLog[]
-  mspReports     MSPReport[]
+  agenciesOwned            Agency[]            @relation("AgencyOwner")
+  memberships              AgencyMember[]
+  candidate                Candidate?
+  vendors                  Vendor[]
+  landlords                Landlord[]
+  offersCreated            Offer[]             @relation("RecruiterOffers")
+  conciergeTasks           ConciergeTask[]     @relation("ConciergeTaskOwner")
+  notifications            Notification[]
+  activityLogs             ActivityLog[]
+  auditLogs                AuditLog[]
+  mspReports               MSPReport[]
+  travelBidRequestsCreated TravelBidRequest[]  @relation("TravelRequestCreator")
+  travelBidsSubmitted      TravelBid[]         @relation("TravelBidSubmitter")
+  walletEntriesCreated     WalletLedgerEntry[] @relation("WalletEntryCreator")
 
   accounts Account[]
   sessions Session[]
@@ -128,18 +175,21 @@ model Agency {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  owner             User               @relation("AgencyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  members           AgencyMember[]
-  candidates        Candidate[]
-  assignments       Assignment[]
-  offers            Offer[]
-  bookingRequests   BookingRequest[]
-  conciergeTasks    ConciergeTask[]
-  activityLogs      ActivityLog[]
-  subscriptionPlans SubscriptionPlan[]
-  paymentRecords    PaymentRecord[]
-  mspReports        MSPReport[]
-  auditLogs         AuditLog[]
+  owner               User                @relation("AgencyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members             AgencyMember[]
+  candidates          Candidate[]
+  assignments         Assignment[]
+  offers              Offer[]
+  bookingRequests     BookingRequest[]
+  conciergeTasks      ConciergeTask[]
+  activityLogs        ActivityLog[]
+  subscriptionPlans   SubscriptionPlan[]
+  paymentRecords      PaymentRecord[]
+  mspReports          MSPReport[]
+  auditLogs           AuditLog[]
+  travelBidRequests   TravelBidRequest[]
+  walletAccount       WalletAccount?
+  walletLedgerEntries WalletLedgerEntry[]
 }
 
 model AgencyMember {
@@ -183,6 +233,9 @@ model Candidate {
   aiInsights          AIInsight[]
   activityLogs        ActivityLog[]
   conciergeTasks      ConciergeTask[]
+  travelBidRequests   TravelBidRequest[]
+  walletAccount       WalletAccount?
+  walletLedgerEntries WalletLedgerEntry[]
 }
 
 model Assignment {
@@ -218,6 +271,7 @@ model Assignment {
   activityLogs        ActivityLog[]
   retentionRiskScores RetentionRiskScore[]
   aiInsights          AIInsight[]
+  travelBidRequests   TravelBidRequest[]
 }
 
 model Offer {
@@ -258,6 +312,7 @@ model Offer {
   retentionRiskScores RetentionRiskScore[]
   aiInsights          AIInsight[]
   activityLogs        ActivityLog[]
+  travelBidRequests   TravelBidRequest[]
 }
 
 model OfferPerk {
@@ -293,6 +348,76 @@ model BookingRequest {
   assignment     Assignment      @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   offer          Offer           @relation(fields: [offerId], references: [id], onDelete: Cascade)
   conciergeTasks ConciergeTask[]
+}
+
+model TravelBidRequest {
+  id                  String                @id @default(uuid())
+  agencyId            String
+  candidateId         String
+  assignmentId        String
+  offerId             String?
+  createdById         String?
+  status              MobilityRequestStatus @default(OPEN)
+  originAirport       String?
+  preferredAirport    String
+  departureDate       DateTime
+  returnDate          DateTime?
+  needCar             Boolean               @default(false)
+  needHotel           Boolean               @default(false)
+  baggageCount        Int                   @default(1)
+  carType             String?
+  hotelNights         Int?
+  specialRequirements String?
+  agencyTravelCredit  Decimal               @default(0) @db.Decimal(10, 2)
+  bidExpiresAt        DateTime
+  selectedBidId       String?               @unique
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  agency              Agency              @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  candidate           Candidate           @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  assignment          Assignment          @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  offer               Offer?              @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  createdBy           User?               @relation("TravelRequestCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  bids                TravelBid[]         @relation("RequestBids")
+  selectedBid         TravelBid?          @relation("SelectedTravelBid", fields: [selectedBidId], references: [id], onDelete: SetNull)
+  walletLedgerEntries WalletLedgerEntry[]
+
+  @@index([assignmentId, status])
+  @@index([agencyId, bidExpiresAt])
+}
+
+model TravelBid {
+  id                     String              @id @default(uuid())
+  requestId              String
+  vendorId               String
+  submittedById          String?
+  status                 MobilityBidStatus   @default(ACTIVE)
+  packageType            MobilityPackageType @default(FLIGHT_ONLY)
+  airline                String
+  flightType             String
+  stops                  Int                 @default(0)
+  totalPrice             Decimal             @db.Decimal(10, 2)
+  currency               String              @default("USD")
+  includesCar            Boolean             @default(false)
+  includesHotel          Boolean             @default(false)
+  carProvider            String?
+  hotelName              String?
+  notes                  String?
+  expiresAt              DateTime
+  recommendedByConcierge Boolean             @default(false)
+  selectedAt             DateTime?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  request             TravelBidRequest    @relation("RequestBids", fields: [requestId], references: [id], onDelete: Cascade)
+  vendor              Vendor              @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  submittedBy         User?               @relation("TravelBidSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  selectedForRequest  TravelBidRequest?   @relation("SelectedTravelBid")
+  walletLedgerEntries WalletLedgerEntry[]
+
+  @@index([requestId, status])
+  @@index([vendorId, createdAt])
 }
 
 model HousingOption {
@@ -369,6 +494,7 @@ model Vendor {
   housingOptions   HousingOption[]
   travelOptions    TravelOption[]
   carRentalOptions CarRentalOption[]
+  travelBids       TravelBid[]
 }
 
 model Landlord {
@@ -504,6 +630,52 @@ model PaymentRecord {
 
   agency       Agency            @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   subscription SubscriptionPlan? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+}
+
+model WalletAccount {
+  id            String            @id @default(uuid())
+  agencyId      String?           @unique
+  candidateId   String?           @unique
+  accountType   WalletAccountType
+  currency      String            @default("USD")
+  balance       Decimal           @default(0) @db.Decimal(12, 2)
+  escrowBalance Decimal           @default(0) @db.Decimal(12, 2)
+  isActive      Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  agency    Agency?             @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  candidate Candidate?          @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  entries   WalletLedgerEntry[]
+
+  @@index([accountType])
+}
+
+model WalletLedgerEntry {
+  id              String            @id @default(uuid())
+  walletAccountId String
+  agencyId        String?
+  candidateId     String?
+  travelRequestId String?
+  travelBidId     String?
+  entryType       WalletEntryType
+  status          WalletEntryStatus @default(POSTED)
+  amount          Decimal           @db.Decimal(12, 2)
+  description     String
+  referenceCode   String?
+  metadata        Json?
+  createdById     String?
+  createdAt       DateTime          @default(now())
+
+  walletAccount WalletAccount     @relation(fields: [walletAccountId], references: [id], onDelete: Cascade)
+  agency        Agency?           @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  candidate     Candidate?        @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  travelRequest TravelBidRequest? @relation(fields: [travelRequestId], references: [id], onDelete: SetNull)
+  travelBid     TravelBid?        @relation(fields: [travelBidId], references: [id], onDelete: SetNull)
+  createdBy     User?             @relation("WalletEntryCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([walletAccountId, createdAt])
+  @@index([agencyId, candidateId])
 }
 
 model DocumentVault {

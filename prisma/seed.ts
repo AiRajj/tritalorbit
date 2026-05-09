@@ -1,4 +1,22 @@
-import { PrismaClient, Role, OfferStatus, BookingStatus, VerificationStatus, ReadinessStatus, TaskStatus, Priority, AIInsightType, NotificationType, LeadSource } from "@prisma/client";
+import {
+  PrismaClient,
+  Role,
+  OfferStatus,
+  BookingStatus,
+  VerificationStatus,
+  ReadinessStatus,
+  TaskStatus,
+  Priority,
+  AIInsightType,
+  NotificationType,
+  LeadSource,
+  MobilityBidStatus,
+  MobilityPackageType,
+  MobilityRequestStatus,
+  WalletAccountType,
+  WalletEntryStatus,
+  WalletEntryType
+} from "@prisma/client";
 import { hash } from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -283,6 +301,190 @@ async function main() {
       priority: Priority.HIGH,
       dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24)
     }
+  });
+
+  const travelVendorB = await prisma.vendor.create({
+    data: {
+      name: "Skyline OTA",
+      category: "Travel",
+      city: "Chicago",
+      state: "IL",
+      verificationStatus: VerificationStatus.VERIFIED,
+      rating: 4.6,
+      contactEmail: "ops@skylineota.com"
+    }
+  });
+
+  const travelVendorC = await prisma.vendor.create({
+    data: {
+      name: "MedTravel Pro",
+      category: "Travel",
+      city: "Atlanta",
+      state: "GA",
+      verificationStatus: VerificationStatus.VERIFIED,
+      rating: 4.5,
+      contactEmail: "bids@medtravelpro.com"
+    }
+  });
+
+  const travelRequest = await prisma.travelBidRequest.create({
+    data: {
+      agencyId: agency.id,
+      candidateId: candidate.id,
+      assignmentId: assignment.id,
+      offerId: offer.id,
+      createdById: recruiter.id,
+      status: MobilityRequestStatus.BID_ACTIVE,
+      originAirport: "DFW",
+      preferredAirport: "LGA",
+      departureDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 9),
+      returnDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 102),
+      needCar: true,
+      needHotel: false,
+      baggageCount: 2,
+      carType: "Compact SUV",
+      specialRequirements: "Nonstop preferred, evening arrival.",
+      agencyTravelCredit: 450,
+      bidExpiresAt: new Date(Date.now() + 1000 * 60 * 60 * 18)
+    }
+  });
+
+  const bidA = await prisma.travelBid.create({
+    data: {
+      requestId: travelRequest.id,
+      vendorId: vendor.id,
+      submittedById: vendorUser.id,
+      status: MobilityBidStatus.ACTIVE,
+      packageType: MobilityPackageType.FLIGHT_CAR,
+      airline: "Delta",
+      flightType: "Nonstop",
+      stops: 0,
+      totalPrice: 312,
+      includesCar: true,
+      includesHotel: false,
+      carProvider: "Hertz",
+      notes: "Carry-on plus one checked bag included.",
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 14),
+      recommendedByConcierge: true
+    }
+  });
+
+  await prisma.travelBid.create({
+    data: {
+      requestId: travelRequest.id,
+      vendorId: travelVendorB.id,
+      status: MobilityBidStatus.ACTIVE,
+      packageType: MobilityPackageType.FLIGHT_ONLY,
+      airline: "United",
+      flightType: "1 Stop",
+      stops: 1,
+      totalPrice: 284,
+      includesCar: false,
+      includesHotel: false,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 15)
+    }
+  });
+
+  await prisma.travelBid.create({
+    data: {
+      requestId: travelRequest.id,
+      vendorId: travelVendorC.id,
+      status: MobilityBidStatus.ACTIVE,
+      packageType: MobilityPackageType.FLIGHT_HOTEL,
+      airline: "American",
+      flightType: "Nonstop",
+      stops: 0,
+      totalPrice: 326,
+      includesCar: false,
+      includesHotel: true,
+      hotelName: "Hyatt Place Queens",
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 12)
+    }
+  });
+
+  await prisma.travelBidRequest.update({
+    where: { id: travelRequest.id },
+    data: {
+      status: MobilityRequestStatus.BOOKED,
+      selectedBidId: bidA.id
+    }
+  });
+
+  await prisma.travelBid.update({
+    where: { id: bidA.id },
+    data: {
+      status: MobilityBidStatus.SELECTED,
+      selectedAt: new Date()
+    }
+  });
+
+  const agencyWallet = await prisma.walletAccount.upsert({
+    where: { agencyId: agency.id },
+    update: {
+      accountType: WalletAccountType.AGENCY,
+      balance: 5000,
+      escrowBalance: 450
+    },
+    create: {
+      agencyId: agency.id,
+      accountType: WalletAccountType.AGENCY,
+      balance: 5000,
+      escrowBalance: 450
+    }
+  });
+
+  const candidateWallet = await prisma.walletAccount.upsert({
+    where: { candidateId: candidate.id },
+    update: {
+      accountType: WalletAccountType.CANDIDATE,
+      balance: 450
+    },
+    create: {
+      candidateId: candidate.id,
+      accountType: WalletAccountType.CANDIDATE,
+      balance: 450
+    }
+  });
+
+  await prisma.walletLedgerEntry.createMany({
+    data: [
+      {
+        walletAccountId: agencyWallet.id,
+        agencyId: agency.id,
+        candidateId: candidate.id,
+        travelRequestId: travelRequest.id,
+        travelBidId: bidA.id,
+        entryType: WalletEntryType.FUNDING,
+        status: WalletEntryStatus.POSTED,
+        amount: 5500,
+        description: "Agency wallet preload",
+        referenceCode: "fund_seed_001",
+        createdById: agencyOwner.id
+      },
+      {
+        walletAccountId: agencyWallet.id,
+        agencyId: agency.id,
+        candidateId: candidate.id,
+        travelRequestId: travelRequest.id,
+        entryType: WalletEntryType.CREDIT_GRANT,
+        status: WalletEntryStatus.POSTED,
+        amount: -450,
+        description: "Travel credit grant escrow reserve",
+        createdById: recruiter.id
+      },
+      {
+        walletAccountId: candidateWallet.id,
+        agencyId: agency.id,
+        candidateId: candidate.id,
+        travelRequestId: travelRequest.id,
+        travelBidId: bidA.id,
+        entryType: WalletEntryType.CREDIT_GRANT,
+        status: WalletEntryStatus.POSTED,
+        amount: 450,
+        description: "Agency travel credit grant",
+        createdById: recruiter.id
+      }
+    ]
   });
 
   await prisma.retentionRiskScore.create({

@@ -15,6 +15,7 @@ export const protectedRouteRoles: Array<{ path: string; roles: Role[] }> = [
   { path: "/agency", roles: [Role.AGENCY_OWNER, Role.RECRUITER, Role.CONCIERGE_MANAGER] },
   { path: "/recruiter", roles: [Role.RECRUITER, Role.AGENCY_OWNER] },
   { path: "/candidate", roles: [Role.CANDIDATE] },
+  { path: "/wallet", roles: [Role.AGENCY_OWNER, Role.RECRUITER, Role.CONCIERGE_MANAGER, Role.CANDIDATE] },
   { path: "/concierge", roles: [Role.CONCIERGE_MANAGER, Role.AGENCY_OWNER] },
   { path: "/vendor", roles: [Role.VENDOR_LANDLORD, Role.SUPER_ADMIN] },
   { path: "/msp", roles: [Role.MSP_VIEWER, Role.SUPER_ADMIN] }

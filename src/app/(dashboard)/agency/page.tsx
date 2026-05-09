@@ -22,11 +22,19 @@ export default async function AgencyDashboardPage() {
           <h1 className="text-2xl font-bold text-slate-900">Agency Dashboard</h1>
           <p className="text-sm text-slate-600">Offer-to-start intelligence across acceptance, readiness, and retention.</p>
         </div>
-        <Button asChild>
-          <Link href="/agency/offers/create">
-            <PlusCircle className="h-4 w-4" /> Create Offer
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/agency/travel-support">Travel Support</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/agency/wallet">Agency Wallet</Link>
+          </Button>
+          <Button asChild>
+            <Link href="/agency/offers/create">
+              <PlusCircle className="h-4 w-4" /> Create Offer
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <KpiStrip

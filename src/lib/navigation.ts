@@ -1,4 +1,20 @@
-import { Home, LayoutDashboard, Brain, BriefcaseMedical, Building2, Users, FileText, LifeBuoy, Shield, Hotel, Car, Plane, ClipboardList } from "lucide-react";
+import {
+  Home,
+  LayoutDashboard,
+  Brain,
+  BriefcaseMedical,
+  Building2,
+  Users,
+  FileText,
+  LifeBuoy,
+  Shield,
+  Hotel,
+  Car,
+  Plane,
+  ClipboardList,
+  PlaneTakeoff,
+  WalletCards
+} from "lucide-react";
 
 export const marketingNav = [
   { label: "Platform", href: "/platform" },
@@ -20,6 +36,8 @@ export const roleSidebar = {
     { label: "Create Offer", href: "/agency/offers/create", icon: BriefcaseMedical },
     { label: "Booking Requests", href: "/agency/booking-requests", icon: ClipboardList },
     { label: "Assignment Launch", href: "/agency/assignment-launch", icon: Plane },
+    { label: "Travel Support", href: "/agency/travel-support", icon: PlaneTakeoff },
+    { label: "Agency Wallet", href: "/agency/wallet", icon: WalletCards },
     { label: "Vendors", href: "/agency/vendors", icon: Building2 }
   ],
   recruiter: [
@@ -28,10 +46,15 @@ export const roleSidebar = {
   ],
   candidate: [
     { label: "Candidate Dashboard", href: "/candidate", icon: Home },
+    { label: "Travel Marketplace", href: "/candidate/travel-marketplace", icon: PlaneTakeoff },
+    { label: "Wallet", href: "/candidate/wallet", icon: WalletCards },
     { label: "Housing", href: "/candidate/housing", icon: Hotel }
   ],
   concierge: [{ label: "Concierge Requests", href: "/concierge/requests", icon: LifeBuoy }],
-  vendor: [{ label: "Vendor Dashboard", href: "/vendor/dashboard", icon: Building2 }],
+  vendor: [
+    { label: "Vendor Dashboard", href: "/vendor/dashboard", icon: Building2 },
+    { label: "Travel Agency", href: "/vendor/travel-agency", icon: PlaneTakeoff }
+  ],
   msp: [{ label: "MSP Reporting", href: "/msp", icon: FileText }]
 };
 

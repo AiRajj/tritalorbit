@@ -40,6 +40,10 @@ export function DashboardShell({
               ? roleSidebar.concierge
               : pathname.startsWith("/vendor")
                 ? roleSidebar.vendor
+                : pathname.startsWith("/wallet")
+                  ? role === Role.CANDIDATE
+                    ? roleSidebar.candidate
+                    : roleSidebar.agency
                 : roleSidebar.msp;
 
   return (

@@ -29,6 +29,9 @@ export default async function VendorDashboardPage() {
               <p className="text-xs text-slate-500">Rating: {vendor.rating ?? "N/A"}</p>
             </div>
           ))}
+          <a href="/vendor/travel-agency" className="inline-flex text-sm font-medium text-orbit-blue hover:underline">
+            Open Travel Agency Exchange Console →
+          </a>
         </CardContent>
       </Card>
     </div>

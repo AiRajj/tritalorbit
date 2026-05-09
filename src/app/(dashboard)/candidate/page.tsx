@@ -22,6 +22,12 @@ export default function CandidateDashboardPage() {
           <Button asChild variant="outline">
             <Link href="/candidate/housing">View housing options</Link>
           </Button>
+          <Button asChild variant="outline">
+            <Link href="/candidate/travel-marketplace">Open travel marketplace</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/candidate/wallet">Open wallet</Link>
+          </Button>
         </CardContent>
       </Card>
 
