@@ -26,6 +26,12 @@ export default function CandidateDashboardPage() {
             <Link href="/candidate/travel-marketplace">Open travel marketplace</Link>
           </Button>
           <Button asChild variant="outline">
+            <Link href="/candidate/compare-offers">Compare my offers</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/candidate/rewards">Orbit rewards</Link>
+          </Button>
+          <Button asChild variant="outline">
             <Link href="/candidate/wallet">Open wallet</Link>
           </Button>
         </CardContent>

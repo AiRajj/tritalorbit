@@ -27,6 +27,9 @@ export default async function AgencyDashboardPage() {
             <Link href="/agency/travel-support">Travel Support</Link>
           </Button>
           <Button variant="outline" asChild>
+            <Link href="/agency/rewards">Rewards Ops</Link>
+          </Button>
+          <Button variant="outline" asChild>
             <Link href="/agency/wallet">Agency Wallet</Link>
           </Button>
           <Button asChild>

@@ -134,6 +134,43 @@ enum WalletEntryStatus {
   FAILED
 }
 
+enum ComparisonSourceType {
+  INTERNAL_OFFER
+  EXTERNAL_OFFER
+}
+
+enum ComparisonStatus {
+  DRAFT
+  ANALYZED
+  FINALIZED
+  ARCHIVED
+}
+
+enum RewardsTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+  ORBIT_ELITE
+}
+
+enum RewardEventType {
+  ASSIGNMENT_COMPLETED
+  QUICK_ACCEPTANCE
+  VENDOR_BOOKING
+  REFERRAL
+  BONUS
+  MANUAL_ADJUSTMENT
+}
+
+enum RewardRedemptionStatus {
+  REQUESTED
+  APPROVED
+  FULFILLED
+  REJECTED
+  CANCELLED
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -146,20 +183,24 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  agenciesOwned            Agency[]            @relation("AgencyOwner")
+  agenciesOwned            Agency[]                @relation("AgencyOwner")
   memberships              AgencyMember[]
   candidate                Candidate?
   vendors                  Vendor[]
   landlords                Landlord[]
-  offersCreated            Offer[]             @relation("RecruiterOffers")
-  conciergeTasks           ConciergeTask[]     @relation("ConciergeTaskOwner")
+  offersCreated            Offer[]                 @relation("RecruiterOffers")
+  conciergeTasks           ConciergeTask[]         @relation("ConciergeTaskOwner")
   notifications            Notification[]
   activityLogs             ActivityLog[]
   auditLogs                AuditLog[]
   mspReports               MSPReport[]
-  travelBidRequestsCreated TravelBidRequest[]  @relation("TravelRequestCreator")
-  travelBidsSubmitted      TravelBid[]         @relation("TravelBidSubmitter")
-  walletEntriesCreated     WalletLedgerEntry[] @relation("WalletEntryCreator")
+  travelBidRequestsCreated TravelBidRequest[]      @relation("TravelRequestCreator")
+  travelBidsSubmitted      TravelBid[]             @relation("TravelBidSubmitter")
+  walletEntriesCreated     WalletLedgerEntry[]     @relation("WalletEntryCreator")
+  uploadedExternalOffers   ExternalOfferDocument[] @relation("ExternalOfferUploader")
+  createdOfferComparisons  OfferComparison[]       @relation("OfferComparisonCreator")
+  awardedRewardEvents      RewardEvent[]           @relation("RewardEventAwarder")
+  requestedRedemptions     RewardRedemption[]      @relation("RewardRedemptionRequester")
 
   accounts Account[]
   sessions Session[]
@@ -190,6 +231,8 @@ model Agency {
   travelBidRequests   TravelBidRequest[]
   walletAccount       WalletAccount?
   walletLedgerEntries WalletLedgerEntry[]
+  rewardEvents        RewardEvent[]
+  rewardRedemptions   RewardRedemption[]
 }
 
 model AgencyMember {
@@ -223,8 +266,8 @@ model Candidate {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  user                User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
-  agency              Agency               @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  user                User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  agency              Agency                  @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   offers              Offer[]
   assignments         Assignment[]
   bookingRequests     BookingRequest[]
@@ -236,6 +279,11 @@ model Candidate {
   travelBidRequests   TravelBidRequest[]
   walletAccount       WalletAccount?
   walletLedgerEntries WalletLedgerEntry[]
+  externalOffers      ExternalOfferDocument[]
+  offerComparisons    OfferComparison[]
+  rewardsAccount      RewardsAccount?
+  rewardEvents        RewardEvent[]
+  rewardRedemptions   RewardRedemption[]
 }
 
 model Assignment {
@@ -303,16 +351,18 @@ model Offer {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  agency              Agency               @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  candidate           Candidate            @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  assignment          Assignment           @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  recruiter           User                 @relation("RecruiterOffers", fields: [recruiterId], references: [id], onDelete: Cascade)
+  agency              Agency                 @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  candidate           Candidate              @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  assignment          Assignment             @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  recruiter           User                   @relation("RecruiterOffers", fields: [recruiterId], references: [id], onDelete: Cascade)
   perks               OfferPerk[]
   bookingRequests     BookingRequest[]
   retentionRiskScores RetentionRiskScore[]
   aiInsights          AIInsight[]
   activityLogs        ActivityLog[]
   travelBidRequests   TravelBidRequest[]
+  comparisonEntries   OfferComparisonEntry[] @relation("ComparisonEntryInternalOffer")
+  primaryComparisons  OfferComparison[]      @relation("ComparisonPrimaryOffer")
 }
 
 model OfferPerk {
@@ -418,6 +468,98 @@ model TravelBid {
 
   @@index([requestId, status])
   @@index([vendorId, createdAt])
+}
+
+model ExternalOfferDocument {
+  id                    String   @id @default(uuid())
+  candidateId           String
+  uploadedById          String?
+  sourceLabel           String
+  agencyName            String
+  role                  String
+  specialty             String
+  locationCity          String
+  locationState         String
+  weeklyPay             Decimal  @db.Decimal(10, 2)
+  taxableRate           Decimal? @db.Decimal(10, 2)
+  stipend               Decimal? @db.Decimal(10, 2)
+  durationWeeks         Int?
+  travelSupportScore    Int      @default(50)
+  housingSupportScore   Int      @default(50)
+  readinessSupportScore Int      @default(50)
+  costOfLivingIndex     Float    @default(1)
+  rawText               String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  candidate         Candidate              @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  uploadedBy        User?                  @relation("ExternalOfferUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  comparisonEntries OfferComparisonEntry[]
+
+  @@index([candidateId, createdAt])
+}
+
+model OfferComparison {
+  id                  String           @id @default(uuid())
+  candidateId         String
+  primaryOfferId      String?
+  createdById         String?
+  status              ComparisonStatus @default(DRAFT)
+  recommendationTitle String?
+  executiveSummary    String?
+  bestOverallLabel    String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  candidate    Candidate                @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  primaryOffer Offer?                   @relation("ComparisonPrimaryOffer", fields: [primaryOfferId], references: [id], onDelete: SetNull)
+  createdBy    User?                    @relation("OfferComparisonCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  entries      OfferComparisonEntry[]
+  insights     OfferComparisonInsight[]
+
+  @@index([candidateId, status])
+}
+
+model OfferComparisonEntry {
+  id                    String               @id @default(uuid())
+  comparisonId          String
+  sourceType            ComparisonSourceType
+  internalOfferId       String?
+  externalOfferId       String?
+  label                 String
+  weeklyPay             Decimal              @db.Decimal(10, 2)
+  stipend               Decimal              @db.Decimal(10, 2)
+  durationWeeks         Int
+  city                  String
+  state                 String
+  travelSupportScore    Int                  @default(50)
+  housingSupportScore   Int                  @default(50)
+  readinessSupportScore Int                  @default(50)
+  costOfLivingIndex     Float                @default(1)
+  totalValueScore       Float                @default(0)
+  lifestyleScore        Float                @default(0)
+  notes                 String?
+  createdAt             DateTime             @default(now())
+
+  comparison    OfferComparison        @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+  internalOffer Offer?                 @relation("ComparisonEntryInternalOffer", fields: [internalOfferId], references: [id], onDelete: SetNull)
+  externalOffer ExternalOfferDocument? @relation(fields: [externalOfferId], references: [id], onDelete: SetNull)
+
+  @@index([comparisonId, sourceType])
+}
+
+model OfferComparisonInsight {
+  id           String   @id @default(uuid())
+  comparisonId String
+  heading      String
+  detail       String
+  rank         Int      @default(1)
+  aiModel      String
+  createdAt    DateTime @default(now())
+
+  comparison OfferComparison @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+
+  @@index([comparisonId, rank])
 }
 
 model HousingOption {
@@ -676,6 +818,65 @@ model WalletLedgerEntry {
 
   @@index([walletAccountId, createdAt])
   @@index([agencyId, candidateId])
+}
+
+model RewardsAccount {
+  id                String      @id @default(uuid())
+  candidateId       String      @unique
+  tier              RewardsTier @default(BRONZE)
+  pointsBalance     Int         @default(0)
+  lifetimePoints    Int         @default(0)
+  streakAssignments Int         @default(0)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  candidate   Candidate          @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  events      RewardEvent[]
+  redemptions RewardRedemption[]
+}
+
+model RewardEvent {
+  id               String          @id @default(uuid())
+  rewardsAccountId String
+  candidateId      String
+  agencyId         String
+  type             RewardEventType
+  points           Int
+  description      String
+  metadata         Json?
+  awardedById      String?
+  createdAt        DateTime        @default(now())
+
+  rewardsAccount RewardsAccount @relation(fields: [rewardsAccountId], references: [id], onDelete: Cascade)
+  candidate      Candidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  agency         Agency         @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  awardedBy      User?          @relation("RewardEventAwarder", fields: [awardedById], references: [id], onDelete: SetNull)
+
+  @@index([candidateId, createdAt])
+  @@index([agencyId, type])
+}
+
+model RewardRedemption {
+  id               String                 @id @default(uuid())
+  rewardsAccountId String
+  candidateId      String
+  agencyId         String
+  rewardName       String
+  pointsRedeemed   Int
+  rewardValue      String
+  status           RewardRedemptionStatus @default(REQUESTED)
+  metadata         Json?
+  requestedById    String?
+  requestedAt      DateTime               @default(now())
+  fulfilledAt      DateTime?
+
+  rewardsAccount RewardsAccount @relation(fields: [rewardsAccountId], references: [id], onDelete: Cascade)
+  candidate      Candidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  agency         Agency         @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  requestedBy    User?          @relation("RewardRedemptionRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+
+  @@index([candidateId, status])
+  @@index([agencyId, requestedAt])
 }
 
 model DocumentVault {

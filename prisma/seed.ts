@@ -612,6 +612,202 @@ async function main() {
     }
   });
 
+  const externalOfferA = await prisma.externalOfferDocument.create({
+    data: {
+      candidateId: candidate.id,
+      uploadedById: candidateUser.id,
+      sourceLabel: "Aya Offer Upload",
+      agencyName: "Aya Healthcare",
+      role: "Registered Nurse",
+      specialty: "ICU",
+      locationCity: "Phoenix",
+      locationState: "AZ",
+      weeklyPay: 2760,
+      taxableRate: 55,
+      stipend: 980,
+      durationWeeks: 13,
+      travelSupportScore: 48,
+      housingSupportScore: 52,
+      readinessSupportScore: 45,
+      costOfLivingIndex: 1.05,
+      rawText: "Aya ICU 13-week assignment with limited housing support."
+    }
+  });
+
+  const externalOfferB = await prisma.externalOfferDocument.create({
+    data: {
+      candidateId: candidate.id,
+      uploadedById: candidateUser.id,
+      sourceLabel: "AMN Offer Upload",
+      agencyName: "AMN Healthcare",
+      role: "Registered Nurse",
+      specialty: "ICU",
+      locationCity: "New York",
+      locationState: "NY",
+      weeklyPay: 3015,
+      taxableRate: 62,
+      stipend: 1040,
+      durationWeeks: 13,
+      travelSupportScore: 60,
+      housingSupportScore: 42,
+      readinessSupportScore: 50,
+      costOfLivingIndex: 1.4,
+      rawText: "AMN NYC ICU assignment with high rate and high cost-of-living."
+    }
+  });
+
+  const comparison = await prisma.offerComparison.create({
+    data: {
+      candidateId: candidate.id,
+      primaryOfferId: offer.id,
+      createdById: candidateUser.id,
+      status: "ANALYZED",
+      recommendationTitle: "Best Overall Assignment Experience",
+      executiveSummary:
+        "TRITAL Orbit-supported Dallas assignment offers stronger mobility support and readiness certainty after normalizing for cost of living.",
+      bestOverallLabel: "Baylor Regional Medical Center (Dallas, TX)",
+      entries: {
+        createMany: {
+          data: [
+            {
+              sourceType: "INTERNAL_OFFER",
+              internalOfferId: offer.id,
+              label: "Baylor Regional Medical Center (Dallas, TX)",
+              weeklyPay: 2875,
+              stipend: 1240,
+              durationWeeks: 13,
+              city: "Dallas",
+              state: "TX",
+              travelSupportScore: 78,
+              housingSupportScore: 80,
+              readinessSupportScore: 82,
+              costOfLivingIndex: 1.08,
+              totalValueScore: 97.2,
+              lifestyleScore: 88.4,
+              notes: "Internal Orbit offer"
+            },
+            {
+              sourceType: "EXTERNAL_OFFER",
+              externalOfferId: externalOfferA.id,
+              label: "Aya Healthcare (Phoenix, AZ)",
+              weeklyPay: 2760,
+              stipend: 980,
+              durationWeeks: 13,
+              city: "Phoenix",
+              state: "AZ",
+              travelSupportScore: 48,
+              housingSupportScore: 52,
+              readinessSupportScore: 45,
+              costOfLivingIndex: 1.05,
+              totalValueScore: 92.6,
+              lifestyleScore: 63.8,
+              notes: "External offer"
+            },
+            {
+              sourceType: "EXTERNAL_OFFER",
+              externalOfferId: externalOfferB.id,
+              label: "AMN Healthcare (New York, NY)",
+              weeklyPay: 3015,
+              stipend: 1040,
+              durationWeeks: 13,
+              city: "New York",
+              state: "NY",
+              travelSupportScore: 60,
+              housingSupportScore: 42,
+              readinessSupportScore: 50,
+              costOfLivingIndex: 1.4,
+              totalValueScore: 83.1,
+              lifestyleScore: 58.6,
+              notes: "External offer"
+            }
+          ]
+        }
+      }
+    }
+  });
+
+  await prisma.offerComparisonInsight.createMany({
+    data: [
+      {
+        comparisonId: comparison.id,
+        heading: "Compensation vs. lifestyle",
+        detail: "The Dallas offer has slightly lower headline pay than NYC but materially better cost-adjusted value and support.",
+        rank: 1,
+        aiModel: "mock-compare-agent"
+      },
+      {
+        comparisonId: comparison.id,
+        heading: "Readiness confidence",
+        detail: "Orbit mobility support and first-week readiness services create the strongest start-date confidence profile.",
+        rank: 2,
+        aiModel: "mock-compare-agent"
+      }
+    ]
+  });
+
+  const rewardsAccount = await prisma.rewardsAccount.upsert({
+    where: { candidateId: candidate.id },
+    update: {
+      tier: "SILVER",
+      pointsBalance: 1430,
+      lifetimePoints: 1840,
+      streakAssignments: 3
+    },
+    create: {
+      candidateId: candidate.id,
+      tier: "SILVER",
+      pointsBalance: 1430,
+      lifetimePoints: 1840,
+      streakAssignments: 3
+    }
+  });
+
+  await prisma.rewardEvent.createMany({
+    data: [
+      {
+        rewardsAccountId: rewardsAccount.id,
+        candidateId: candidate.id,
+        agencyId: agency.id,
+        type: "ASSIGNMENT_COMPLETED",
+        points: 500,
+        description: "Completed 13-week ICU assignment",
+        awardedById: recruiter.id
+      },
+      {
+        rewardsAccountId: rewardsAccount.id,
+        candidateId: candidate.id,
+        agencyId: agency.id,
+        type: "QUICK_ACCEPTANCE",
+        points: 150,
+        description: "Accepted assignment within 6 hours",
+        awardedById: recruiter.id
+      },
+      {
+        rewardsAccountId: rewardsAccount.id,
+        candidateId: candidate.id,
+        agencyId: agency.id,
+        type: "VENDOR_BOOKING",
+        points: 90,
+        description: "Booked through verified mobility vendor",
+        awardedById: conciergeManager.id
+      }
+    ]
+  });
+
+  await prisma.rewardRedemption.create({
+    data: {
+      rewardsAccountId: rewardsAccount.id,
+      candidateId: candidate.id,
+      agencyId: agency.id,
+      rewardName: "Airport Transfer Credit",
+      pointsRedeemed: 300,
+      rewardValue: "$60 transfer voucher",
+      status: "FULFILLED",
+      requestedById: candidateUser.id,
+      fulfilledAt: new Date()
+    }
+  });
+
   await prisma.lead.create({
     data: {
       source: LeadSource.PRICING,

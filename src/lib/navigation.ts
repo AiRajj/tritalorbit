@@ -13,7 +13,9 @@ import {
   Plane,
   ClipboardList,
   PlaneTakeoff,
-  WalletCards
+  WalletCards,
+  GitCompareArrows,
+  Medal
 } from "lucide-react";
 
 export const marketingNav = [
@@ -38,6 +40,7 @@ export const roleSidebar = {
     { label: "Assignment Launch", href: "/agency/assignment-launch", icon: Plane },
     { label: "Travel Support", href: "/agency/travel-support", icon: PlaneTakeoff },
     { label: "Agency Wallet", href: "/agency/wallet", icon: WalletCards },
+    { label: "Rewards Ops", href: "/agency/rewards", icon: Medal },
     { label: "Vendors", href: "/agency/vendors", icon: Building2 }
   ],
   recruiter: [
@@ -46,6 +49,8 @@ export const roleSidebar = {
   ],
   candidate: [
     { label: "Candidate Dashboard", href: "/candidate", icon: Home },
+    { label: "Compare Offers", href: "/candidate/compare-offers", icon: GitCompareArrows },
+    { label: "Orbit Rewards", href: "/candidate/rewards", icon: Medal },
     { label: "Travel Marketplace", href: "/candidate/travel-marketplace", icon: PlaneTakeoff },
     { label: "Wallet", href: "/candidate/wallet", icon: WalletCards },
     { label: "Housing", href: "/candidate/housing", icon: Hotel }
