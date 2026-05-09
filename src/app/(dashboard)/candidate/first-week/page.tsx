@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,42 @@ export default function CandidateFirstWeekPage() {
         </p>
       </section>
 
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Guides available</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">{guides.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Average confidence</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">
+              {guides.length
+                ? `${Math.round(guides.reduce((acc, guide) => acc + guide.firstWeekConfidenceScore, 0) / guides.length)} / 100`
+                : "--"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Checklist completion</p>
+            <p className="mt-2 text-2xl font-bold text-slate-900">
+              {guides.length
+                ? `${Math.round(
+                    (guides.reduce(
+                      (acc, guide) => acc + guide.checklistItems.filter((item) => item.completed).length,
+                      0
+                    ) /
+                      Math.max(guides.reduce((acc, guide) => acc + guide.checklistItems.length, 0), 1)) *
+                      100
+                  )}%`
+                : "--"}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Create first-week guide</CardTitle>
@@ -84,17 +121,27 @@ export default function CandidateFirstWeekPage() {
             <CardContent className="p-5 text-sm text-slate-600">No guides available yet. Create one to start readiness tracking.</CardContent>
           </Card>
         ) : (
-          guides.map((guide) => (
-            <Card key={guide.id}>
-              <CardHeader>
-                <CardTitle className="text-base">Guide {guide.id.slice(0, 8)}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm text-slate-700">
-                <p>Confidence score: {guide.firstWeekConfidenceScore}/100</p>
-                <p>{guide.firstDayInstructions ?? 'No instructions added yet.'}</p>
-                <p>Checklist items: {guide.checklistItems.length}</p>
-              </CardContent>
-            </Card>
+          guides.map((guide, index) => (
+            <motion.div
+              key={guide.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.24, delay: index * 0.04 }}
+            >
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Guide {guide.id.slice(0, 8)}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm text-slate-700">
+                  <p>Confidence score: {guide.firstWeekConfidenceScore}/100</p>
+                  <p>{guide.firstDayInstructions ?? "No instructions added yet."}</p>
+                  <p>
+                    Checklist items: {guide.checklistItems.filter((item) => item.completed).length}/
+                    {guide.checklistItems.length}
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
           ))
         )}
       </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,29 @@ export default function OfferWarRoomPage() {
         </p>
       </section>
 
+      <div className="grid gap-4 md:grid-cols-4">
+        {[
+          ["Open intelligence records", String(items.length)],
+          ["High-risk (mobility friction > 40%)", String(items.filter((i) => i.mobilityFrictionScore > 0.4).length)],
+          ["Strong close probability (>70%)", String(items.filter((i) => i.closeProbability > 0.7).length)],
+          ["Needs immediate outreach", String(items.filter((i) => i.engagementScore < 0.6).length)]
+        ].map(([label, value], idx) => (
+          <motion.div
+            key={label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.22, delay: idx * 0.04 }}
+          >
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Create war room insight</CardTitle>
@@ -77,24 +101,53 @@ export default function OfferWarRoomPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Guided outreach workflow</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 text-sm text-slate-700 md:grid-cols-3">
+          <p className="rounded-md border border-slate-100 bg-slate-50 p-3">
+            <span className="font-semibold text-slate-900">1. Detect risk:</span> prioritize by close probability and
+            mobility friction.
+          </p>
+          <p className="rounded-md border border-slate-100 bg-slate-50 p-3">
+            <span className="font-semibold text-slate-900">2. Execute play:</span> send AI-guided SMS/email/call +
+            sponsor wallet credit.
+          </p>
+          <p className="rounded-md border border-slate-100 bg-slate-50 p-3">
+            <span className="font-semibold text-slate-900">3. Measure impact:</span> track engagement lift and
+            acceptance progression.
+          </p>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2">
         {items.length === 0 ? (
           <Card>
             <CardContent className="p-5 text-sm text-slate-600">No offer intelligence records yet.</CardContent>
           </Card>
         ) : (
-          items.map((item) => (
-            <Card key={item.id}>
-              <CardHeader>
-                <CardTitle className="text-base">Insight {item.id.slice(0, 8)}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm text-slate-700">
-                <p>Close probability: {(item.closeProbability * 100).toFixed(0)}%</p>
-                <p>Engagement score: {(item.engagementScore * 100).toFixed(0)}%</p>
-                <p>Mobility friction: {(item.mobilityFrictionScore * 100).toFixed(0)}%</p>
-                <p>{item.recommendedAction ?? 'No action recommendation yet.'}</p>
-              </CardContent>
-            </Card>
+          items.map((item, index) => (
+            <motion.div
+              key={item.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.22, delay: index * 0.03 }}
+            >
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Insight {item.id.slice(0, 8)}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm text-slate-700">
+                  <p>Close probability: {(item.closeProbability * 100).toFixed(0)}%</p>
+                  <p>Engagement score: {(item.engagementScore * 100).toFixed(0)}%</p>
+                  <p>Mobility friction: {(item.mobilityFrictionScore * 100).toFixed(0)}%</p>
+                  <p className="rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-600">
+                    {item.recommendedAction ?? "No action recommendation yet."}
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
           ))
         )}
       </div>
