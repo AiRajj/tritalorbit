@@ -1,20 +1,34 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getCallerAgencyIds, requireRole } from "@/lib/api-auth";
 import { createRecruiterAlertIfNotViewed, setHighRiskAlert } from "@/lib/services/automation";
 import { computeRiskScore } from "@/lib/services/risk";
 
 export async function POST() {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await requireRole([
+    Role.SUPER_ADMIN,
+    Role.AGENCY_OWNER,
+    Role.RECRUITER,
+    Role.CONCIERGE_MANAGER
+  ]);
+  if (!guard.ok) return guard.response;
+
+  const isAdmin = guard.session.user.role === Role.SUPER_ADMIN;
+  const agencyIds = isAdmin ? null : await getCallerAgencyIds(guard.session.user.id);
+
+  if (!isAdmin && (!agencyIds || agencyIds.length === 0)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const agencyScope = agencyIds ? { agencyId: { in: agencyIds } } : {};
 
   const now = Date.now();
   const sentThreshold = new Date(now - 1000 * 60 * 60 * 2);
 
   const staleOffers = await prisma.offer.findMany({
     where: {
+      ...agencyScope,
       status: "SENT",
       sentAt: { lte: sentThreshold }
     },
@@ -30,6 +44,7 @@ export async function POST() {
 
   const housingFrictionOffers = await prisma.offer.findMany({
     where: {
+      ...agencyScope,
       assignment: {
         startDate: { lte: new Date(now + 1000 * 60 * 60 * 24 * 7) },
         housingStatus: "NOT_STARTED"
@@ -57,7 +72,7 @@ export async function POST() {
   }
 
   const housingViewedNotAccepted = await prisma.activityLog.findMany({
-    where: { action: "candidate.clicked_housing" },
+    where: { ...agencyScope, action: "candidate.clicked_housing" },
     orderBy: { createdAt: "desc" },
     take: 50
   });
@@ -77,9 +92,19 @@ export async function POST() {
       const offer = await prisma.offer.findUnique({ where: { id: event.offerId } });
       if (!offer) continue;
 
+      const recent = await prisma.aIInsight.findFirst({
+        where: {
+          type: "RISK_SCORE",
+          offerId: event.offerId,
+          createdAt: { gte: new Date(now - 1000 * 60 * 60 * 24) }
+        }
+      });
+      if (recent) continue;
+
       await prisma.aIInsight.create({
         data: {
           type: "RISK_SCORE",
+          agencyId: offer.agencyId,
           candidateId: event.candidateId,
           assignmentId: event.assignmentId,
           offerId: event.offerId,
@@ -93,6 +118,7 @@ export async function POST() {
   }
 
   return NextResponse.json({
+    scope: isAdmin ? "platform" : "agency",
     staleOfferAlerts: staleOffers.length,
     housingRiskAlerts: housingFrictionOffers.length,
     followupSignals: housingViewedNotAccepted.length

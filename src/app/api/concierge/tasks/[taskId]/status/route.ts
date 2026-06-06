@@ -1,24 +1,44 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { z } from "zod";
+import { Role, TaskStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { requireAgencyRole } from "@/lib/api-auth";
 import { runAiAgent } from "@/lib/services/ai";
 
+const bodySchema = z.object({
+  status: z.nativeEnum(TaskStatus)
+});
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ taskId: string }> }) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { taskId } = await params;
+
+  const taskBefore = await prisma.conciergeTask.findUnique({
+    where: { id: taskId },
+    select: { agencyId: true }
+  });
+  if (!taskBefore) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const body = (await request.json()) as { status: "NEW" | "IN_PROGRESS" | "WAITING_CANDIDATE" | "COMPLETED" | "CANCELLED" };
-  const { taskId } = await params;
+  const guard = await requireAgencyRole(taskBefore.agencyId, [
+    Role.AGENCY_OWNER,
+    Role.CONCIERGE_MANAGER,
+    Role.RECRUITER
+  ]);
+  if (!guard.ok) return guard.response;
+
+  const parsed = bodySchema.safeParse(await request.json());
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+  }
 
   const task = await prisma.conciergeTask.update({
     where: { id: taskId },
-    data: { status: body.status },
+    data: { status: parsed.data.status },
     include: { candidate: true }
   });
 
-  if (body.status === "COMPLETED") {
+  if (parsed.data.status === TaskStatus.COMPLETED) {
     const ai = await runAiAgent(
       "Concierge AI Agent",
       `Draft concise candidate update for completed concierge task: ${task.title}`
@@ -38,7 +58,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ta
     await prisma.activityLog.create({
       data: {
         agencyId: task.agencyId,
-        actorId: session.user.id,
+        actorId: guard.session.user.id,
         candidateId: task.candidateId,
         assignmentId: task.assignmentId,
         action: "concierge.task.completed",

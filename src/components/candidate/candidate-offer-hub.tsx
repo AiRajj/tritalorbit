@@ -53,7 +53,6 @@ export function CandidateOfferHub(props: OfferHubProps) {
           <p><span className="font-medium">Weekly Pay:</span> ${props.weeklyPay.toLocaleString()}</p>
           <p><span className="font-medium">Duration:</span> {props.durationWeeks} weeks</p>
           <p className="mt-2 text-xs uppercase tracking-wide text-slate-500">Powered by TRITAL Orbit™</p>
-          <p className="text-xs text-slate-500">Recruiter contact: recruiter@northstarstaffing.com</p>
           <p className="text-xs text-slate-500">Support contact: support@tritalorbit.com</p>
         </CardContent>
       </Card>
@@ -121,10 +120,10 @@ export function CandidateOfferHub(props: OfferHubProps) {
       <div className="flex flex-wrap gap-2">
         <Button onClick={acceptOffer} disabled={loading}>{loading ? "Processing..." : "Accept Offer"}</Button>
         <Button variant="outline" asChild>
-          <a href={`/candidate/booking-request/${props.offerId}`}>Request Housing/Travel Support</a>
+          <a href={`/candidate/offer/${props.token}/request-mobility`}>Request Housing/Travel Support</a>
         </Button>
         <Button variant="outline" asChild>
-          <a href="mailto:recruiter@northstarstaffing.com">Ask Recruiter a Question</a>
+          <a href="mailto:support@tritalorbit.com">Ask the Orbit Concierge</a>
         </Button>
       </div>
     </div>

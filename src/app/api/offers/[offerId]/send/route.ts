@@ -1,16 +1,23 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { requireAgencyRole } from "@/lib/api-auth";
 
 export async function POST(_: Request, { params }: { params: Promise<{ offerId: string }> }) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { offerId } = await params;
+
+  const offerBefore = await prisma.offer.findUnique({
+    where: { id: offerId },
+    select: { agencyId: true }
+  });
+  if (!offerBefore) {
+    return NextResponse.json({ error: "Offer not found" }, { status: 404 });
   }
 
-  try {
-    const { offerId } = await params;
+  const guard = await requireAgencyRole(offerBefore.agencyId, [Role.AGENCY_OWNER, Role.RECRUITER]);
+  if (!guard.ok) return guard.response;
 
+  try {
     const offer = await prisma.offer.update({
       where: { id: offerId },
       data: {
@@ -23,11 +30,21 @@ export async function POST(_: Request, { params }: { params: Promise<{ offerId: 
     await prisma.activityLog.create({
       data: {
         agencyId: offer.agencyId,
-        actorId: session.user.id,
+        actorId: guard.session.user.id,
         candidateId: offer.candidateId,
         offerId: offer.id,
         assignmentId: offer.assignmentId,
         action: "offer.sent"
+      }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        agencyId: offer.agencyId,
+        actorId: guard.session.user.id,
+        action: "offer.sent",
+        targetType: "Offer",
+        targetId: offer.id
       }
     });
 

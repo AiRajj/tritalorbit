@@ -1,4 +1,23 @@
-import { PrismaClient, Role, OfferStatus, BookingStatus, VerificationStatus, ReadinessStatus, TaskStatus, Priority, AIInsightType, NotificationType, LeadSource } from "@prisma/client";
+import {
+  PrismaClient,
+  Role,
+  OfferStatus,
+  BookingStatus,
+  VerificationStatus,
+  ReadinessStatus,
+  TaskStatus,
+  Priority,
+  AIInsightType,
+  NotificationType,
+  LeadSource,
+  MobilityRequestType,
+  MobilityRequestStatus,
+  MobilityBidStatus,
+  MobilityBookingStatus,
+  MobilityPaymentResponsibility,
+  UrgencyLevel,
+  VendorCategory
+} from "@prisma/client";
 import { hash } from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -430,6 +449,353 @@ async function main() {
       monthlyPlacements: 85,
       painPoint: "Backouts in high-cost metro assignments"
     }
+  });
+
+  // --- Module 12: Live Mobility Exchange seed ---
+
+  const travelVendorUser = await prisma.user.upsert({
+    where: { email: "ops@orbitair.com" },
+    update: {},
+    create: {
+      email: "ops@orbitair.com",
+      name: "Orbit Air Desk",
+      role: Role.VENDOR_LANDLORD,
+      passwordHash
+    }
+  });
+
+  const carVendorUser = await prisma.user.upsert({
+    where: { email: "fleet@premierwheels.com" },
+    update: {},
+    create: {
+      email: "fleet@premierwheels.com",
+      name: "Premier Wheels",
+      role: Role.VENDOR_LANDLORD,
+      passwordHash
+    }
+  });
+
+  const travelVendor = await prisma.vendor.upsert({
+    where: { id: "11111111-1111-1111-1111-111111110011" },
+    update: {},
+    create: {
+      id: "11111111-1111-1111-1111-111111110011",
+      ownerId: travelVendorUser.id,
+      name: "Orbit Air Desk",
+      category: "Travel Agency",
+      city: "Dallas",
+      state: "TX",
+      verificationStatus: VerificationStatus.VERIFIED,
+      rating: 4.7,
+      contactEmail: travelVendorUser.email,
+      contactPhone: "+1 (555) 012-2210"
+    }
+  });
+
+  const carVendor = await prisma.vendor.upsert({
+    where: { id: "11111111-1111-1111-1111-111111110012" },
+    update: {},
+    create: {
+      id: "11111111-1111-1111-1111-111111110012",
+      ownerId: carVendorUser.id,
+      name: "Premier Wheels",
+      category: "Car Rental",
+      city: "Dallas",
+      state: "TX",
+      verificationStatus: VerificationStatus.VERIFIED,
+      rating: 4.5,
+      contactEmail: carVendorUser.email
+    }
+  });
+
+  await prisma.vendorBidProfile.upsert({
+    where: { vendorId: vendor.id },
+    update: {},
+    create: {
+      vendorId: vendor.id,
+      vendorCategory: VendorCategory.HOUSING_PROVIDER,
+      serviceStates: ["TX", "OK", "AR"],
+      serviceCities: ["Dallas", "Austin", "Houston", "Oklahoma City"],
+      manualBidEnabled: true,
+      verificationStatus: VerificationStatus.VERIFIED,
+      averageResponseTimeMin: 45,
+      averageSavingsPct: 12,
+      bookingCompletionRate: 0.94,
+      chargebackRiskScore: 12,
+      rating: 4.8,
+      monthlyBidLimit: 100,
+      bidsUsedThisMonth: 14
+    }
+  });
+
+  await prisma.vendorBidProfile.upsert({
+    where: { vendorId: travelVendor.id },
+    update: {},
+    create: {
+      vendorId: travelVendor.id,
+      vendorCategory: VendorCategory.TRAVEL_AGENCY,
+      serviceStates: ["TX", "OK", "AR", "LA", "TN", "GA", "FL"],
+      serviceCities: ["Dallas", "Austin", "Houston", "Atlanta", "Nashville", "Miami"],
+      apiEnabled: true,
+      manualBidEnabled: true,
+      verificationStatus: VerificationStatus.VERIFIED,
+      averageResponseTimeMin: 28,
+      averageSavingsPct: 9,
+      bookingCompletionRate: 0.91,
+      chargebackRiskScore: 8,
+      rating: 4.7,
+      monthlyBidLimit: 200,
+      bidsUsedThisMonth: 47
+    }
+  });
+
+  await prisma.vendorBidProfile.upsert({
+    where: { vendorId: carVendor.id },
+    update: {},
+    create: {
+      vendorId: carVendor.id,
+      vendorCategory: VendorCategory.CAR_RENTAL,
+      serviceStates: ["TX", "OK"],
+      serviceCities: ["Dallas", "Austin", "Houston"],
+      manualBidEnabled: true,
+      verificationStatus: VerificationStatus.VERIFIED,
+      averageResponseTimeMin: 65,
+      averageSavingsPct: 7,
+      bookingCompletionRate: 0.88,
+      chargebackRiskScore: 18,
+      rating: 4.5,
+      monthlyBidLimit: 50,
+      bidsUsedThisMonth: 12
+    }
+  });
+
+  const mobilityRequest = await prisma.mobilityRequest.create({
+    data: {
+      candidateId: candidate.id,
+      agencyId: agency.id,
+      assignmentId: assignment.id,
+      createdById: candidateUser.id,
+      requestType: MobilityRequestType.FULL_RELOCATION_PACKAGE,
+      originCity: "Phoenix",
+      originState: "AZ",
+      originAirport: "PHX",
+      destinationCity: "Dallas",
+      destinationState: "TX",
+      destinationAirport: "DFW",
+      assignmentCity: "Dallas",
+      assignmentState: "TX",
+      facilityName: assignment.facilityName,
+      moveDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 6),
+      startDate: assignment.startDate,
+      budgetMin: 2000,
+      budgetMax: 2600,
+      preferredAirline: "Delta",
+      baggageNeeded: true,
+      checkedBags: 2,
+      housingNeeded: true,
+      carNeeded: true,
+      petFriendly: true,
+      preferredCommuteMinutes: 25,
+      notes: "Pet-friendly required. Prefer nonstop. Move-in must be 48h before shift one.",
+      urgencyLevel: UrgencyLevel.HIGH,
+      status: MobilityRequestStatus.OPEN_FOR_BIDS,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 72)
+    }
+  });
+
+  // Flight bids
+  await prisma.mobilityBid.createMany({
+    data: [
+      {
+        mobilityRequestId: mobilityRequest.id,
+        vendorId: travelVendor.id,
+        vendorUserId: travelVendorUser.id,
+        bidType: MobilityRequestType.FLIGHT,
+        packageName: "Delta DL1247 PHX → DFW",
+        vendorName: travelVendor.name,
+        totalPrice: 268,
+        airlineName: "Delta",
+        flightNumber: "DL1247",
+        departureAirport: "PHX",
+        arrivalAirport: "DFW",
+        departureTime: new Date(Date.now() + 1000 * 60 * 60 * 24 * 6 + 1000 * 60 * 60 * 7),
+        arrivalTime: new Date(Date.now() + 1000 * 60 * 60 * 24 * 6 + 1000 * 60 * 60 * 10.5),
+        stops: 0,
+        baggageIncluded: true,
+        cancellationPolicy: "Refundable within 24h",
+        refundability: "Refundable within 24h",
+        bidScore: 88,
+        conciergeRecommended: true,
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 48),
+        status: MobilityBidStatus.SUBMITTED
+      },
+      {
+        mobilityRequestId: mobilityRequest.id,
+        vendorId: travelVendor.id,
+        vendorUserId: travelVendorUser.id,
+        bidType: MobilityRequestType.FLIGHT,
+        packageName: "American AA1247 PHX → DFW",
+        vendorName: travelVendor.name,
+        totalPrice: 312,
+        airlineName: "American Airlines",
+        flightNumber: "AA1247",
+        departureAirport: "PHX",
+        arrivalAirport: "DFW",
+        departureTime: new Date(Date.now() + 1000 * 60 * 60 * 24 * 6 + 1000 * 60 * 60 * 11),
+        arrivalTime: new Date(Date.now() + 1000 * 60 * 60 * 24 * 6 + 1000 * 60 * 60 * 14.5),
+        stops: 0,
+        baggageIncluded: false,
+        cancellationPolicy: "Non-refundable, change fee $75",
+        refundability: "Non-refundable",
+        bidScore: 72,
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 48),
+        status: MobilityBidStatus.SUBMITTED
+      }
+    ]
+  });
+
+  // Housing bids
+  await prisma.mobilityBid.createMany({
+    data: [
+      {
+        mobilityRequestId: mobilityRequest.id,
+        vendorId: vendor.id,
+        vendorUserId: vendorUser.id,
+        bidType: MobilityRequestType.HOUSING,
+        packageName: "Furnished 1BR · Walk to facility",
+        vendorName: vendor.name,
+        totalPrice: 2100 * 4,
+        housingAddress: "812 Memorial Pkwy, Dallas, TX",
+        housingDistanceToFacility: 0.8,
+        housingMonthlyCost: 2100,
+        leaseFlexibility: "Month-to-month",
+        cancellationPolicy: "Free cancel up to 14 days before move-in",
+        refundability: "Free cancel up to 14 days",
+        bidScore: 92,
+        conciergeRecommended: true,
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 72),
+        status: MobilityBidStatus.SUBMITTED
+      },
+      {
+        mobilityRequestId: mobilityRequest.id,
+        vendorId: vendor.id,
+        vendorUserId: vendorUser.id,
+        bidType: MobilityRequestType.HOUSING,
+        packageName: "Premium 1BR with pool + gym",
+        vendorName: vendor.name,
+        totalPrice: 2450 * 4,
+        housingAddress: "415 Lakeside Drive, Dallas, TX",
+        housingDistanceToFacility: 2.4,
+        housingMonthlyCost: 2450,
+        leaseFlexibility: "13-week minimum",
+        cancellationPolicy: "50% refundable up to 7 days before move-in",
+        refundability: "Partially refundable",
+        bidScore: 81,
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 72),
+        status: MobilityBidStatus.SUBMITTED
+      }
+    ]
+  });
+
+  // Car bid
+  await prisma.mobilityBid.create({
+    data: {
+      mobilityRequestId: mobilityRequest.id,
+      vendorId: carVendor.id,
+      vendorUserId: carVendorUser.id,
+      bidType: MobilityRequestType.CAR_RENTAL,
+      packageName: "Compact SUV · 13 weeks",
+      vendorName: carVendor.name,
+      totalPrice: 225 * 13,
+      carRentalCompany: "Premier Wheels",
+      carClass: "Compact SUV",
+      cancellationPolicy: "Free cancel up to 24h before pickup",
+      refundability: "Free cancel up to 24h",
+      bidScore: 78,
+      conciergeRecommended: true,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 72),
+      status: MobilityBidStatus.SUBMITTED
+    }
+  });
+
+  // A second, BID_ACCEPTED request that became a booking — used by /admin/mobility-exchange + agency views
+  const completedRequest = await prisma.mobilityRequest.create({
+    data: {
+      candidateId: candidate.id,
+      agencyId: agency.id,
+      assignmentId: assignment.id,
+      createdById: recruiter.id,
+      requestType: MobilityRequestType.HOUSING,
+      destinationCity: "Austin",
+      destinationState: "TX",
+      assignmentCity: "Austin",
+      assignmentState: "TX",
+      facilityName: "Mercy General",
+      moveDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14),
+      startDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 12),
+      budgetMax: 2200,
+      housingNeeded: true,
+      urgencyLevel: UrgencyLevel.MEDIUM,
+      status: MobilityRequestStatus.BID_ACCEPTED
+    }
+  });
+
+  const winningBid = await prisma.mobilityBid.create({
+    data: {
+      mobilityRequestId: completedRequest.id,
+      vendorId: vendor.id,
+      vendorUserId: vendorUser.id,
+      bidType: MobilityRequestType.HOUSING,
+      packageName: "Riverside furnished studio",
+      vendorName: vendor.name,
+      totalPrice: 1980 * 4,
+      housingAddress: "240 Riverside Drive, Austin, TX",
+      housingDistanceToFacility: 1.2,
+      housingMonthlyCost: 1980,
+      leaseFlexibility: "Month-to-month",
+      cancellationPolicy: "Free cancel up to 30 days before move-in",
+      bidScore: 94,
+      conciergeRecommended: true,
+      status: MobilityBidStatus.ACCEPTED
+    }
+  });
+
+  await prisma.mobilityBooking.create({
+    data: {
+      mobilityRequestId: completedRequest.id,
+      acceptedBidId: winningBid.id,
+      candidateId: candidate.id,
+      agencyId: agency.id,
+      vendorId: vendor.id,
+      assignmentId: assignment.id,
+      bookingStatus: MobilityBookingStatus.CONFIRMED,
+      paymentResponsibility: MobilityPaymentResponsibility.AGENCY,
+      amount: 1980 * 4,
+      platformFee: Math.round(1980 * 4 * 0.05),
+      vendorPayout: Math.round(1980 * 4 * 0.95),
+      bookingNotes: "Agency-funded. Concierge confirmed move-in."
+    }
+  });
+
+  await prisma.activityLog.createMany({
+    data: [
+      {
+        agencyId: agency.id,
+        actorId: candidateUser.id,
+        candidateId: candidate.id,
+        assignmentId: assignment.id,
+        action: "mobility.request.created",
+        metadata: { mobilityRequestId: mobilityRequest.id, bidsSeeded: 5 }
+      },
+      {
+        agencyId: agency.id,
+        actorId: recruiter.id,
+        candidateId: candidate.id,
+        assignmentId: assignment.id,
+        action: "mobility.bid.accepted",
+        metadata: { bidId: winningBid.id, amount: 1980 * 4 }
+      }
+    ]
   });
 
   console.log("Seed complete");

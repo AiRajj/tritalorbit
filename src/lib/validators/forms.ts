@@ -28,16 +28,7 @@ export const contactSchema = z.object({
 export const registerSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
-  password: z.string().min(8),
-  role: z.enum([
-    "SUPER_ADMIN",
-    "AGENCY_OWNER",
-    "RECRUITER",
-    "CONCIERGE_MANAGER",
-    "MSP_VIEWER",
-    "CANDIDATE",
-    "VENDOR_LANDLORD"
-  ])
+  password: z.string().min(8)
 });
 
 export const forgotPasswordSchema = z.object({

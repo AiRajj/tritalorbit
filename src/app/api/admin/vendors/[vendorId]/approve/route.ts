@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/api-auth";
 
 export async function PATCH(_: Request, { params }: { params: Promise<{ vendorId: string }> }) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireRole(Role.SUPER_ADMIN);
+  if (!guard.ok) return guard.response;
 
   const { vendorId } = await params;
 
@@ -17,7 +16,7 @@ export async function PATCH(_: Request, { params }: { params: Promise<{ vendorId
 
   await prisma.auditLog.create({
     data: {
-      actorId: session.user.id,
+      actorId: guard.session.user.id,
       action: "vendor.approved",
       targetType: "Vendor",
       targetId: vendor.id,

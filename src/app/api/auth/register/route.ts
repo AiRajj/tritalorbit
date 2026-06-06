@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { hash } from "bcryptjs";
+import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerSchema } from "@/lib/validators/forms";
+
+const BCRYPT_COST = 12;
 
 export async function POST(request: Request) {
   try {
@@ -17,14 +20,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email already exists" }, { status: 409 });
     }
 
-    const passwordHash = await hash(parsed.data.password, 10);
+    const passwordHash = await hash(parsed.data.password, BCRYPT_COST);
 
     const user = await prisma.user.create({
       data: {
         name: parsed.data.name,
         email: parsed.data.email,
         passwordHash,
-        role: parsed.data.role
+        role: Role.CANDIDATE
       }
     });
 

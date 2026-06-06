@@ -40,6 +40,29 @@ TRITAL Orbit™ is a production-ready B2B2C SaaS platform for healthcare staffin
 
 All lead/demo/contact forms are wired to database-backed API handlers.
 
+### Live Mobility Exchange™ (Module 12)
+Assignment-verified bidding marketplace. Verified travel, housing, car rental, hotel, and relocation
+vendors compete to win every healthcare mobility booking.
+
+- Public landing: `/mobility-exchange`
+- Candidate: `/candidate/travel-marketplace`, `/candidate/mobility-request/create`, `/candidate/mobility-request/[id]`
+- Agency: `/agency/mobility`, `/agency/mobility/requests`, `/agency/mobility/requests/[id]`
+- Vendor: `/vendor/bid-center`, `/vendor/bid-center/[id]`
+- Admin: `/admin/mobility-exchange`
+- APIs: `POST /api/mobility/requests`, `POST /api/mobility/bids`, `POST /api/mobility/bids/[id]/accept`
+- Models: `MobilityRequest`, `MobilityBid`, `MobilityBooking`, `VendorBidProfile`
+- Integration layer (`src/lib/integrations/*`): mock providers for flights, housing, cars, hotels, maps.
+  Real providers (Amadeus, Duffel, Booking, Expedia, Google Maps) plug in via env vars; fall back to
+  mock when keys are missing.
+
+### Security hardening (P0 from gap report)
+- Public `/api/auth/register` locked to `CANDIDATE` role; bcrypt cost raised to 12.
+- All sensitive APIs guarded by `src/lib/api-auth.ts` helpers: `requireRole`, `requireAgencyRole`,
+  `requireAgencyMember`. Admin vendor-approve, concierge task status, offer send, automation runner,
+  and MSP CSV export now enforce role + tenant scope.
+- Token-only candidates can now submit booking requests via
+  `POST /api/candidate/offers/[token]/booking-request` rendered at `/candidate/offer/[token]/request-mobility`.
+
 ### Authentication + RBAC
 - Login
 - Register
