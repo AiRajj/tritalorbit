@@ -1,445 +1,349 @@
-import { PrismaClient, Role, OfferStatus, BookingStatus, VerificationStatus, ReadinessStatus, TaskStatus, Priority, AIInsightType, NotificationType, LeadSource } from "@prisma/client";
-import { hash } from "bcryptjs";
+import 'dotenv/config';
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import bcrypt from 'bcryptjs';
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const passwordHash = await hash("Orbit123!", 10);
+  console.log('🌱 Seeding TRITAL Orbit™ database...');
 
-  const superAdmin = await prisma.user.upsert({
-    where: { email: "admin@tritalorbit.com" },
+  const hashedPassword = await bcrypt.hash('password123', 12);
+
+  // Super Admin
+  const admin = await prisma.user.upsert({
+    where: { email: 'admin@tritalorbit.com' },
     update: {},
     create: {
-      email: "admin@tritalorbit.com",
-      name: "Super Admin",
-      role: Role.SUPER_ADMIN,
-      passwordHash
-    }
+      email: 'admin@tritalorbit.com',
+      name: 'System Admin',
+      password: hashedPassword,
+      role: 'SUPER_ADMIN',
+    },
   });
 
+  // Agency
+  const agency = await prisma.agency.create({
+    data: {
+      name: 'HealthFirst Staffing',
+      slug: 'healthfirst-staffing',
+      description: 'Premier healthcare staffing agency',
+      contactEmail: 'info@healthfirst.com',
+      contactPhone: '(555) 123-4567',
+      city: 'Houston',
+      state: 'TX',
+      isActive: true,
+    },
+  });
+
+  // Agency Owner
   const agencyOwner = await prisma.user.upsert({
-    where: { email: "owner@northstarstaffing.com" },
+    where: { email: 'owner@healthfirst.com' },
     update: {},
     create: {
-      email: "owner@northstarstaffing.com",
-      name: "Avery Collins",
-      role: Role.AGENCY_OWNER,
-      passwordHash
-    }
+      email: 'owner@healthfirst.com',
+      name: 'Jennifer Martinez',
+      password: hashedPassword,
+      role: 'AGENCY_OWNER',
+      agencyId: agency.id,
+    },
   });
 
+  await prisma.agencyMember.create({
+    data: { userId: agencyOwner.id, agencyId: agency.id, role: 'AGENCY_OWNER', isActive: true },
+  });
+
+  // Recruiter
   const recruiter = await prisma.user.upsert({
-    where: { email: "recruiter@northstarstaffing.com" },
+    where: { email: 'recruiter@healthfirst.com' },
     update: {},
     create: {
-      email: "recruiter@northstarstaffing.com",
-      name: "Maya Thompson",
-      role: Role.RECRUITER,
-      passwordHash
-    }
+      email: 'recruiter@healthfirst.com',
+      name: 'David Chen',
+      password: hashedPassword,
+      role: 'RECRUITER',
+      agencyId: agency.id,
+    },
   });
 
-  const conciergeManager = await prisma.user.upsert({
-    where: { email: "concierge@northstarstaffing.com" },
+  await prisma.agencyMember.create({
+    data: { userId: recruiter.id, agencyId: agency.id, role: 'RECRUITER', isActive: true },
+  });
+
+  // Concierge Manager
+  const concierge = await prisma.user.upsert({
+    where: { email: 'concierge@tritalorbit.com' },
     update: {},
     create: {
-      email: "concierge@northstarstaffing.com",
-      name: "Jordan Lee",
-      role: Role.CONCIERGE_MANAGER,
-      passwordHash
-    }
+      email: 'concierge@tritalorbit.com',
+      name: 'Maria Johnson',
+      password: hashedPassword,
+      role: 'CONCIERGE_MANAGER',
+    },
   });
 
+  // MSP Viewer
   const mspViewer = await prisma.user.upsert({
-    where: { email: "msp@caregroup.com" },
+    where: { email: 'msp@medstaff.com' },
     update: {},
     create: {
-      email: "msp@caregroup.com",
-      name: "Priya Shah",
-      role: Role.MSP_VIEWER,
-      passwordHash
-    }
+      email: 'msp@medstaff.com',
+      name: 'Robert Williams',
+      password: hashedPassword,
+      role: 'MSP_VIEWER',
+    },
   });
 
-  const candidateUser = await prisma.user.upsert({
-    where: { email: "candidate@nursemail.com" },
+  // Candidate 1
+  const candidateUser1 = await prisma.user.upsert({
+    where: { email: 'sarah.mitchell@email.com' },
     update: {},
     create: {
-      email: "candidate@nursemail.com",
-      name: "Taylor Morgan",
-      role: Role.CANDIDATE,
-      passwordHash
-    }
+      email: 'sarah.mitchell@email.com',
+      name: 'Sarah Mitchell',
+      password: hashedPassword,
+      role: 'CANDIDATE',
+    },
   });
 
+  const candidate1 = await prisma.candidate.create({
+    data: {
+      userId: candidateUser1.id,
+      firstName: 'Sarah',
+      lastName: 'Mitchell',
+      email: 'sarah.mitchell@email.com',
+      phone: '(555) 234-5678',
+      specialty: 'ICU',
+      licenseState: 'TX',
+      experience: 5,
+      profileComplete: true,
+    },
+  });
+
+  // Candidate 2
+  const candidateUser2 = await prisma.user.upsert({
+    where: { email: 'james.thompson@email.com' },
+    update: {},
+    create: {
+      email: 'james.thompson@email.com',
+      name: 'James Thompson',
+      password: hashedPassword,
+      role: 'CANDIDATE',
+    },
+  });
+
+  const candidate2 = await prisma.candidate.create({
+    data: {
+      userId: candidateUser2.id,
+      firstName: 'James',
+      lastName: 'Thompson',
+      email: 'james.thompson@email.com',
+      phone: '(555) 345-6789',
+      specialty: 'ER',
+      licenseState: 'CA',
+      experience: 8,
+      profileComplete: true,
+    },
+  });
+
+  // Vendor
   const vendorUser = await prisma.user.upsert({
-    where: { email: "vendor@mobilitystay.com" },
+    where: { email: 'vendor@travelerlodge.com' },
     update: {},
     create: {
-      email: "vendor@mobilitystay.com",
-      name: "Mobility Stay",
-      role: Role.VENDOR_LANDLORD,
-      passwordHash
-    }
-  });
-
-  const agency = await prisma.agency.upsert({
-    where: { slug: "northstar-staffing" },
-    update: {},
-    create: {
-      name: "Northstar Staffing",
-      slug: "northstar-staffing",
-      ownerId: agencyOwner.id
-    }
-  });
-
-  await prisma.agencyMember.upsert({
-    where: { agencyId_userId: { agencyId: agency.id, userId: agencyOwner.id } },
-    update: { role: Role.AGENCY_OWNER },
-    create: { agencyId: agency.id, userId: agencyOwner.id, role: Role.AGENCY_OWNER, title: "Owner" }
-  });
-
-  await prisma.agencyMember.upsert({
-    where: { agencyId_userId: { agencyId: agency.id, userId: recruiter.id } },
-    update: { role: Role.RECRUITER },
-    create: { agencyId: agency.id, userId: recruiter.id, role: Role.RECRUITER, title: "Recruiter" }
-  });
-
-  await prisma.agencyMember.upsert({
-    where: { agencyId_userId: { agencyId: agency.id, userId: conciergeManager.id } },
-    update: { role: Role.CONCIERGE_MANAGER },
-    create: { agencyId: agency.id, userId: conciergeManager.id, role: Role.CONCIERGE_MANAGER, title: "Concierge Manager" }
-  });
-
-  const candidate = await prisma.candidate.upsert({
-    where: { userId: candidateUser.id },
-    update: {},
-    create: {
-      userId: candidateUser.id,
-      agencyId: agency.id,
-      name: "Taylor Morgan",
-      email: candidateUser.email,
-      phone: "+1 (555) 012-0109",
-      role: "RN",
-      specialty: "ICU",
-      licenseState: "TX",
-      experienceYears: 6,
-      engagementScore: 74
-    }
-  });
-
-  const assignment = await prisma.assignment.create({
-    data: {
-      agencyId: agency.id,
-      candidateId: candidate.id,
-      facilityName: "Baylor Regional Medical Center",
-      city: "Dallas",
-      state: "TX",
-      mspClient: "CareFirst MSP",
-      role: "Registered Nurse",
-      specialty: "ICU",
-      startDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 12),
-      durationWeeks: 13,
-      shift: "Nights",
-      readinessStatus: ReadinessStatus.IN_PROGRESS,
-      documentsStatus: ReadinessStatus.IN_PROGRESS,
-      housingStatus: ReadinessStatus.NOT_STARTED,
-      travelStatus: ReadinessStatus.IN_PROGRESS,
-      firstWeekReadiness: 62
-    }
-  });
-
-  const offer = await prisma.offer.create({
-    data: {
-      agencyId: agency.id,
-      candidateId: candidate.id,
-      assignmentId: assignment.id,
-      recruiterId: recruiter.id,
-      status: OfferStatus.SENT,
-      weeklyPay: 2875,
-      taxableRate: 58.5,
-      stipend: 1240,
-      estimatedContractValue: 37375,
-      sentAt: new Date(Date.now() - 1000 * 60 * 60 * 6),
-      enhancedOfferSummary: "13-week ICU assignment in Dallas with concierge mobility support and fast-track first-week readiness package.",
-      candidateValueStatement: "This offer gives you high earnings plus a frictionless relocation and housing start.",
-      recruiterTalkingPoints: "Lead with Dallas ICU growth and first-week concierge support.",
-      smsPitch: "Taylor, this Dallas ICU role is $2,875/wk plus concierge housing + travel support. Ready to launch?",
-      emailPitch: "Your Dallas ICU assignment with TRITAL Orbit support",
-      closeStrategy: "Reinforce speed-to-ready and housing certainty in the first call.",
-      pdfReadyOffer: "Offer PDF content placeholder",
-      candidateConfidenceScore: 82,
-      perks: {
-        createMany: {
-          data: [
-            { name: "Flight Support", enabled: true },
-            { name: "Housing Assistance", enabled: true },
-            { name: "Car Rental", enabled: true },
-            { name: "Relocation Concierge", enabled: true },
-            { name: "First Week Readiness", enabled: true },
-            { name: "Emergency Housing Support", enabled: false },
-            { name: "Loyalty Rewards", enabled: true }
-          ]
-        }
-      }
-    }
+      email: 'vendor@travelerlodge.com',
+      name: 'Mike Anderson',
+      password: hashedPassword,
+      role: 'VENDOR',
+    },
   });
 
   const vendor = await prisma.vendor.create({
     data: {
-      ownerId: vendorUser.id,
-      name: "Mobility Stay",
-      category: "Housing",
-      city: "Dallas",
-      state: "TX",
-      verificationStatus: VerificationStatus.VERIFIED,
+      userId: vendorUser.id,
+      name: 'Mike Anderson',
+      companyName: 'Traveler Lodge Suites',
+      email: 'vendor@travelerlodge.com',
+      phone: '(555) 456-7890',
+      type: 'HOUSING',
+      description: 'Premium furnished apartments for traveling healthcare professionals',
+      verified: true,
       rating: 4.8,
-      contactEmail: vendorUser.email,
-      contactPhone: "+1 (555) 012-1123"
-    }
+      isActive: true,
+    },
   });
 
-  await prisma.landlord.create({
-    data: {
-      ownerId: vendorUser.id,
-      companyName: "Trusted Nurse Housing",
-      city: "Dallas",
-      state: "TX",
-      verificationStatus: VerificationStatus.VERIFIED,
-      rating: 4.7,
-      contactEmail: "landlord@trustednursehousing.com"
-    }
-  });
-
-  await prisma.housingOption.create({
-    data: {
-      assignmentId: assignment.id,
-      vendorId: vendor.id,
-      title: "Furnished 1BR near Baylor",
-      city: "Dallas",
-      state: "TX",
-      distanceMiles: 2.4,
-      monthlyCost: 2100,
-      availableFrom: new Date(),
-      isVerified: true,
-      verificationStatus: VerificationStatus.VERIFIED,
-      rating: 4.9
-    }
-  });
-
-  await prisma.travelOption.create({
-    data: {
-      assignmentId: assignment.id,
-      vendorId: vendor.id,
-      providerName: "Orbit Air Desk",
-      city: "Dallas",
-      state: "TX",
-      estimatedCost: 350,
-      availableFrom: new Date(),
-      verificationStatus: VerificationStatus.VERIFIED
-    }
-  });
-
-  await prisma.carRentalOption.create({
-    data: {
-      assignmentId: assignment.id,
-      vendorId: vendor.id,
-      providerName: "Premier Wheels",
-      city: "Dallas",
-      state: "TX",
-      weeklyCost: 220,
-      availableFrom: new Date(),
-      verificationStatus: VerificationStatus.VERIFIED
-    }
-  });
-
-  const booking = await prisma.bookingRequest.create({
-    data: {
-      agencyId: agency.id,
-      candidateId: candidate.id,
-      assignmentId: assignment.id,
-      offerId: offer.id,
-      needFlight: true,
-      needHousing: true,
-      needCar: false,
-      moveDate: assignment.startDate,
-      budgetRange: "$1,800 - $2,300",
-      preferredLocation: "Within 20 min of facility",
-      notes: "Pet-friendly requested",
-      status: BookingStatus.IN_PROGRESS
-    }
-  });
-
-  await prisma.conciergeTask.create({
-    data: {
-      agencyId: agency.id,
-      bookingRequestId: booking.id,
-      assignmentId: assignment.id,
-      candidateId: candidate.id,
-      ownerId: conciergeManager.id,
-      title: "Secure housing shortlist",
-      description: "Provide 3 verified housing options within budget.",
-      status: TaskStatus.IN_PROGRESS,
-      priority: Priority.HIGH,
-      dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24)
-    }
-  });
-
-  await prisma.retentionRiskScore.create({
-    data: {
-      candidateId: candidate.id,
-      assignmentId: assignment.id,
-      offerId: offer.id,
-      score: 68,
-      label: "Medium",
-      reasoning: "Offer viewed but housing still unresolved with less than 2 weeks to start.",
-      suggestedAction: "Call candidate within 4 hours and present verified housing shortlist.",
-      suggestedSms: "Taylor, we found verified housing options near your Dallas facility. Can we review together in the next 15 minutes?",
-      suggestedCallScript: "Open with support confidence, then close on reduced move friction and first-week logistics."
-    }
-  });
-
-  await prisma.aIInsight.createMany({
+  // Housing Options
+  await prisma.housingOption.createMany({
     data: [
       {
-        type: AIInsightType.OFFER_BOOST,
-        agencyId: agency.id,
-        candidateId: candidate.id,
-        assignmentId: assignment.id,
-        offerId: offer.id,
-        title: "Offer positioning enhancement",
-        content: "Lead with certainty: verified housing, travel booking, and first-week concierge touchpoint.",
-        model: "mock-offer-agent"
+        vendorId: vendor.id,
+        title: 'Modern Studio near Memorial Hospital',
+        description: 'Fully furnished studio apartment, 5 minutes from Memorial Hospital',
+        address: '123 Medical Center Dr',
+        city: 'Houston',
+        state: 'TX',
+        zipCode: '77030',
+        monthlyRate: 1800,
+        availableFrom: new Date('2026-06-01'),
+        bedrooms: 0,
+        bathrooms: 1,
+        furnished: true,
+        petFriendly: false,
+        distanceToFacility: 0.5,
+        verified: true,
+        rating: 4.7,
+        images: [],
       },
       {
-        type: AIInsightType.READINESS,
-        agencyId: agency.id,
-        candidateId: candidate.id,
-        assignmentId: assignment.id,
-        title: "Readiness gap summary",
-        content: "Housing selection pending; documents at 70%; travel ready for booking.",
-        model: "mock-readiness-agent"
-      }
-    ]
+        vendorId: vendor.id,
+        title: '1BR Apartment - Texas Medical Center',
+        description: 'Spacious 1-bedroom apartment with parking, washer/dryer, gym',
+        address: '456 Hospital Blvd',
+        city: 'Houston',
+        state: 'TX',
+        zipCode: '77030',
+        monthlyRate: 2200,
+        availableFrom: new Date('2026-06-01'),
+        bedrooms: 1,
+        bathrooms: 1,
+        furnished: true,
+        petFriendly: true,
+        distanceToFacility: 1.2,
+        verified: true,
+        rating: 4.9,
+        images: [],
+      },
+    ],
   });
 
-  await prisma.notification.createMany({
+  // Assignments
+  const assignment1 = await prisma.assignment.create({
+    data: {
+      agencyId: agency.id,
+      candidateId: candidate1.id,
+      facilityName: 'Memorial Hermann Hospital',
+      city: 'Houston',
+      state: 'TX',
+      startDate: new Date('2026-06-15'),
+      endDate: new Date('2026-09-14'),
+      duration: 13,
+      shift: 'Night',
+      specialty: 'ICU',
+      mspClient: 'HCA Healthcare',
+      status: 'ACTIVE',
+    },
+  });
+
+  const assignment2 = await prisma.assignment.create({
+    data: {
+      agencyId: agency.id,
+      candidateId: candidate2.id,
+      facilityName: 'Cedars-Sinai Medical Center',
+      city: 'Los Angeles',
+      state: 'CA',
+      startDate: new Date('2026-07-01'),
+      endDate: new Date('2026-09-30'),
+      duration: 13,
+      shift: 'Day',
+      specialty: 'ER',
+      mspClient: 'AMN Healthcare',
+      status: 'ACTIVE',
+    },
+  });
+
+  // Offers
+  const offer1 = await prisma.offer.create({
+    data: {
+      agencyId: agency.id,
+      candidateId: candidate1.id,
+      assignmentId: assignment1.id,
+      weeklyPay: 2850,
+      taxableRate: 28,
+      stipend: 1200,
+      totalContractValue: 37050,
+      status: 'SENT',
+      token: 'abc123def456ghi789jkl012mno345pqr678stu901vwx234yz',
+      sentAt: new Date(),
+    },
+  });
+
+  // Offer Perks
+  await prisma.offerPerk.createMany({
+    data: [
+      { offerId: offer1.id, type: 'FLIGHT', isEnabled: true, details: 'Round-trip flight from Dallas to Houston' },
+      { offerId: offer1.id, type: 'HOUSING', isEnabled: true, details: 'Furnished apartment near facility' },
+      { offerId: offer1.id, type: 'CAR_RENTAL', isEnabled: true, details: 'Weekly car rental included' },
+      { offerId: offer1.id, type: 'FIRST_WEEK', isEnabled: true, details: 'Orientation prep, badge, parking pass' },
+    ],
+  });
+
+  // Subscription Plans
+  await prisma.subscriptionPlan.createMany({
     data: [
       {
-        userId: recruiter.id,
-        type: NotificationType.ACTION_REQUIRED,
-        title: "Housing friction detected",
-        message: "Candidate viewed offer but has not finalized housing support."
+        name: 'Starter',
+        description: 'For small agencies getting started',
+        monthlyPrice: 499,
+        annualPrice: 4990,
+        features: JSON.parse('["25 active offers", "5 users", "Basic AI", "Email support"]'),
+        maxUsers: 5,
+        maxOffers: 25,
+        isActive: true,
       },
       {
-        userId: conciergeManager.id,
-        type: NotificationType.INFO,
-        title: "New concierge task",
-        message: "Secure housing shortlist for Taylor Morgan by tomorrow."
-      }
-    ]
+        name: 'Professional',
+        description: 'For growing agencies',
+        monthlyPrice: 1299,
+        annualPrice: 12990,
+        features: JSON.parse('["100 active offers", "25 users", "Full AI suite", "Priority support", "Concierge access"]'),
+        maxUsers: 25,
+        maxOffers: 100,
+        isActive: true,
+      },
+      {
+        name: 'Enterprise',
+        description: 'For large organizations',
+        monthlyPrice: 0,
+        annualPrice: 0,
+        features: JSON.parse('["Unlimited offers", "Unlimited users", "Custom AI models", "Dedicated support", "SSO", "Custom integrations"]'),
+        maxUsers: -1,
+        maxOffers: -1,
+        isActive: true,
+      },
+    ],
   });
 
-  await prisma.subscriptionPlan.create({
-    data: {
-      agencyId: agency.id,
-      name: "Enterprise Orbit",
-      seats: 42,
-      stripePriceId: "price_orbit_enterprise",
-      renewalAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
-      payments: {
-        create: {
-          agencyId: agency.id,
-          amount: 5500,
-          currency: "USD",
-          status: "SUCCEEDED",
-          stripePaymentId: "pi_orbit_seed_001",
-          paidAt: new Date()
-        }
-      }
-    }
-  });
-
-  await prisma.mSPReport.create({
-    data: {
-      agencyId: agency.id,
-      generatedById: mspViewer.id,
-      periodStart: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30),
-      periodEnd: new Date(),
-      acceptanceRate: 0.84,
-      backoutRate: 0.07,
-      timeToReadyDays: 4.2,
-      firstDayShowRate: 0.93,
-      readinessRate: 0.88,
-      supplierPerformance: { topSupplier: "Northstar Staffing", score: 91 },
-      aiExecutiveSummary: "TRITAL Orbit-supported assignments outperform baseline with stronger readiness and lower backout risk."
-    }
-  });
-
+  // Activity Logs
   await prisma.activityLog.createMany({
     data: [
-      {
-        agencyId: agency.id,
-        actorId: recruiter.id,
-        candidateId: candidate.id,
-        offerId: offer.id,
-        assignmentId: assignment.id,
-        action: "offer.sent",
-        metadata: { channel: "email" }
-      },
-      {
-        agencyId: agency.id,
-        actorId: candidateUser.id,
-        candidateId: candidate.id,
-        offerId: offer.id,
-        assignmentId: assignment.id,
-        action: "candidate.offer.viewed",
-        metadata: { source: "candidate-hub" }
-      }
-    ]
+      { userId: recruiter.id, offerId: offer1.id, candidateId: candidate1.id, action: 'OFFER_CREATED', details: 'Created offer for Sarah Mitchell at Memorial Hermann' },
+      { userId: recruiter.id, offerId: offer1.id, candidateId: candidate1.id, action: 'OFFER_SENT', details: 'Sent offer to Sarah Mitchell via email and SMS' },
+    ],
   });
 
-  await prisma.auditLog.create({
-    data: {
-      agencyId: agency.id,
-      actorId: superAdmin.id,
-      action: "vendor.verified",
-      targetType: "Vendor",
-      targetId: vendor.id,
-      metadata: { status: "VERIFIED" }
-    }
+  // Notifications
+  await prisma.notification.createMany({
+    data: [
+      { userId: recruiter.id, title: 'Offer Sent', message: 'Your offer to Sarah Mitchell has been sent successfully', type: 'SUCCESS', read: false, link: '/agency/offers/' + offer1.id + '/preview' },
+      { userId: agencyOwner.id, title: 'New Booking Request', message: 'Sarah Mitchell has requested housing support', type: 'INFO', read: false, link: '/agency/booking-requests' },
+      { userId: concierge.id, title: 'New Task Assigned', message: 'Housing booking request for Sarah Mitchell', type: 'INFO', read: false, link: '/concierge/requests' },
+    ],
   });
 
-  await prisma.lead.create({
-    data: {
-      source: LeadSource.PRICING,
-      name: "Nina Patel",
-      workEmail: "nina@talentopshealth.com",
-      company: "TalentOps Health",
-      teamSize: "51-200",
-      message: "Interested in rollout for 5 states."
-    }
-  });
-
-  await prisma.demoRequest.create({
-    data: {
-      name: "Ryan Cooper",
-      workEmail: "ryan@staffops.com",
-      company: "StaffOps",
-      role: "VP Operations",
-      monthlyPlacements: 85,
-      painPoint: "Backouts in high-cost metro assignments"
-    }
-  });
-
-  console.log("Seed complete");
+  console.log('✅ Database seeded successfully!');
+  console.log('');
+  console.log('Demo accounts:');
+  console.log('  Admin:     admin@tritalorbit.com / password123');
+  console.log('  Agency:    owner@healthfirst.com / password123');
+  console.log('  Recruiter: recruiter@healthfirst.com / password123');
+  console.log('  Concierge: concierge@tritalorbit.com / password123');
+  console.log('  MSP:       msp@medstaff.com / password123');
+  console.log('  Candidate: sarah.mitchell@email.com / password123');
+  console.log('  Vendor:    vendor@travelerlodge.com / password123');
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+  .then(async () => { await prisma.$disconnect(); })
+  .catch(async (e) => { console.error(e); await prisma.$disconnect(); process.exit(1); });

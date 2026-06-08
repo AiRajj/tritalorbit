@@ -1,88 +1,135 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
-import { offerBuilderSchema } from "@/lib/validators/offer";
+import { NextRequest, NextResponse } from "next/server";
+import { v4 as uuidv4 } from "uuid";
+import { z } from "zod";
 
-export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+const offerSchema = z.object({
+  candidate: z.object({
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    email: z.string().email(),
+    phone: z.string().min(1),
+    role: z.string().min(1),
+    specialty: z.string().min(1),
+    licenseState: z.string().min(1),
+    yearsOfExperience: z.number().min(0),
+  }),
+  assignment: z.object({
+    facilityName: z.string().min(1),
+    city: z.string().min(1),
+    state: z.string().min(1),
+    startDate: z.string().min(1),
+    duration: z.number(),
+    shift: z.string().min(1),
+    specialty: z.string().min(1),
+    mspClient: z.string().optional(),
+  }),
+  compensation: z.object({
+    weeklyPay: z.number().min(0),
+    taxableRate: z.number().min(0),
+    stipend: z.number().min(0),
+    totalContractValue: z.number().min(0),
+  }),
+  perks: z.object({
+    flightSupport: z.boolean(),
+    housingAssistance: z.boolean(),
+    carRental: z.boolean(),
+    relocationConcierge: z.boolean(),
+    firstWeekReadiness: z.boolean(),
+    emergencyHousing: z.boolean(),
+    loyaltyRewards: z.boolean(),
+  }),
+  aiEnhancement: z
+    .object({
+      enhancedSummary: z.string().optional(),
+      valueStatement: z.string().optional(),
+      talkingPoints: z.string().optional(),
+      smsPitch: z.string().optional(),
+      emailPitch: z.string().optional(),
+      closeStrategy: z.string().optional(),
+    })
+    .optional(),
+});
 
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    const parsed = offerBuilderSchema.safeParse(body);
+    const body = await req.json();
+    const validated = offerSchema.safeParse(body);
 
-    if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid offer payload" }, { status: 400 });
+    if (!validated.success) {
+      return NextResponse.json(
+        { success: false, error: "Validation failed", details: validated.error.flatten() },
+        { status: 400 }
+      );
     }
 
-    let candidate = await prisma.candidate.findFirst({
-      where: { agencyId: parsed.data.agencyId, email: parsed.data.candidate.email }
-    });
+    const offerId = uuidv4();
+    const token = uuidv4().replace(/-/g, "") + uuidv4().replace(/-/g, "");
 
-    if (!candidate) {
-      candidate = await prisma.candidate.create({
+    return NextResponse.json(
+      {
+        success: true,
         data: {
-          agencyId: parsed.data.agencyId,
-          name: parsed.data.candidate.name,
-          email: parsed.data.candidate.email,
-          phone: parsed.data.candidate.phone,
-          role: parsed.data.candidate.role,
-          specialty: parsed.data.candidate.specialty,
-          licenseState: parsed.data.candidate.licenseState,
-          experienceYears: parsed.data.candidate.experienceYears
-        }
-      });
-    }
-
-    const assignment = await prisma.assignment.create({
-      data: {
-        agencyId: parsed.data.agencyId,
-        candidateId: candidate.id,
-        facilityName: parsed.data.assignment.facilityName,
-        city: parsed.data.assignment.city,
-        state: parsed.data.assignment.state,
-        mspClient: parsed.data.assignment.mspClient,
-        role: parsed.data.assignment.role,
-        specialty: parsed.data.assignment.specialty,
-        startDate: new Date(parsed.data.assignment.startDate),
-        durationWeeks: parsed.data.assignment.durationWeeks,
-        shift: parsed.data.assignment.shift
-      }
-    });
-
-    const offer = await prisma.offer.create({
-      data: {
-        agencyId: parsed.data.agencyId,
-        candidateId: candidate.id,
-        assignmentId: assignment.id,
-        recruiterId: parsed.data.recruiterId,
-        weeklyPay: parsed.data.compensation.weeklyPay,
-        taxableRate: parsed.data.compensation.taxableRate,
-        stipend: parsed.data.compensation.stipend,
-        estimatedContractValue: parsed.data.compensation.estimatedContractValue,
-        perks: {
-          createMany: {
-            data: parsed.data.perks
-          }
-        }
-      }
-    });
-
-    await prisma.activityLog.create({
-      data: {
-        agencyId: parsed.data.agencyId,
-        actorId: session.user.id,
-        candidateId: candidate.id,
-        offerId: offer.id,
-        assignmentId: assignment.id,
-        action: "offer.created"
-      }
-    });
-
-    return NextResponse.json({ offerId: offer.id, token: offer.token }, { status: 201 });
+          id: offerId,
+          token,
+          ...validated.data,
+          status: "DRAFT",
+          createdAt: new Date().toISOString(),
+          candidatePortalUrl: `https://orbit.trital.com/offer/${token}`,
+        },
+      },
+      { status: 201 }
+    );
   } catch {
-    return NextResponse.json({ error: "Failed to create offer" }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: "Failed to create offer" },
+      { status: 500 }
+    );
   }
+}
+
+export async function GET() {
+  const mockOffers = [
+    {
+      id: "off-001",
+      candidate: { firstName: "Sarah", lastName: "Mitchell", role: "RN", specialty: "ICU" },
+      assignment: { facilityName: "Cedars-Sinai Medical Center", city: "Los Angeles", state: "CA", duration: 13 },
+      compensation: { weeklyPay: 2850, totalContractValue: 37050 },
+      status: "SENT",
+      createdAt: "2026-04-28T10:30:00Z",
+    },
+    {
+      id: "off-002",
+      candidate: { firstName: "James", lastName: "Rodriguez", role: "RT", specialty: "NICU" },
+      assignment: { facilityName: "Mayo Clinic", city: "Rochester", state: "MN", duration: 26 },
+      compensation: { weeklyPay: 3200, totalContractValue: 83200 },
+      status: "ACCEPTED",
+      createdAt: "2026-04-25T14:15:00Z",
+    },
+    {
+      id: "off-003",
+      candidate: { firstName: "Emily", lastName: "Chen", role: "LPN", specialty: "Med-Surg" },
+      assignment: { facilityName: "Johns Hopkins Hospital", city: "Baltimore", state: "MD", duration: 13 },
+      compensation: { weeklyPay: 2100, totalContractValue: 27300 },
+      status: "DRAFT",
+      createdAt: "2026-05-01T09:00:00Z",
+    },
+    {
+      id: "off-004",
+      candidate: { firstName: "Marcus", lastName: "Johnson", role: "CNA", specialty: "ER" },
+      assignment: { facilityName: "Cleveland Clinic", city: "Cleveland", state: "OH", duration: 8 },
+      compensation: { weeklyPay: 1650, totalContractValue: 13200 },
+      status: "VIEWED",
+      createdAt: "2026-05-03T16:45:00Z",
+    },
+    {
+      id: "off-005",
+      candidate: { firstName: "Jessica", lastName: "Patel", role: "RN", specialty: "OR" },
+      assignment: { facilityName: "Mass General Hospital", city: "Boston", state: "MA", duration: 52 },
+      compensation: { weeklyPay: 3100, totalContractValue: 161200 },
+      status: "SENT",
+      createdAt: "2026-05-06T11:20:00Z",
+    },
+  ];
+
+  return NextResponse.json({ success: true, data: mockOffers });
 }

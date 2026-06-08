@@ -1,21 +1,27 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { leadSchema } from "@/lib/validators/forms";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    const parsed = leadSchema.safeParse(body);
+    const body = await req.json();
 
-    if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid lead payload" }, { status: 400 });
+    const { name, email, company, phone, message, source } = body;
+
+    if (!name || !email) {
+      return NextResponse.json(
+        { success: false, error: "Name and email are required" },
+        { status: 400 }
+      );
     }
 
-    const lead = await prisma.lead.create({ data: parsed.data });
-    return NextResponse.json({ id: lead.id }, { status: 201 });
+    console.log("Lead submitted:", { name, email, company, phone, message, source });
+
+    return NextResponse.json(
+      { success: true, message: "Thank you! We'll be in touch shortly." },
+      { status: 201 }
+    );
   } catch {
     return NextResponse.json(
-      { error: "Unable to store lead. Please try again or contact support@tritalorbit.com." },
+      { success: false, error: "Failed to submit" },
       { status: 500 }
     );
   }

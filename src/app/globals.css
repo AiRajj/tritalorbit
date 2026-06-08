@@ -1,23 +1,68 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
-  color-scheme: light;
+  --brand-blue: #0B3C5D;
+  --brand-red: #E63946;
+  --brand-white: #F8FAFC;
+  --brand-slate: #1F2937;
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+}
+
+@theme inline {
+  --color-brand-blue: #0B3C5D;
+  --color-brand-red: #E63946;
+  --color-brand-white: #F8FAFC;
+  --color-brand-slate: #1F2937;
 }
 
 body {
-  @apply bg-orbit-white text-slate-900 antialiased;
+  background: var(--background);
+  color: var(--foreground);
 }
 
-.gradient-text {
-  background: linear-gradient(135deg, #0B3C5D 0%, #E63946 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+@layer base {
+  * {
+    @apply border-gray-200;
+  }
+
+  body {
+    @apply bg-white text-gray-900;
+  }
 }
 
-.hero-grid {
-  background-image: linear-gradient(rgba(15,23,42,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,0.06) 1px, transparent 1px);
-  background-size: 28px 28px;
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[#0B3C5D] to-[#E63946];
+  }
+
+  .glass {
+    @apply bg-white/80 backdrop-blur-lg border border-white/20;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+*:focus-visible {
+  outline: 2px solid #0B3C5D;
+  outline-offset: 2px;
 }

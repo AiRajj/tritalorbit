@@ -4,17 +4,23 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
-enum Role {
+enum UserRole {
   SUPER_ADMIN
   AGENCY_OWNER
   RECRUITER
   CONCIERGE_MANAGER
   MSP_VIEWER
   CANDIDATE
-  VENDOR_LANDLORD
+  VENDOR
+}
+
+enum AssignmentStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
 }
 
 enum OfferStatus {
@@ -23,8 +29,18 @@ enum OfferStatus {
   VIEWED
   ACCEPTED
   DECLINED
-  BACKOUT_RISK
-  CANCELLED
+  EXPIRED
+  COUNTERED
+}
+
+enum PerkType {
+  FLIGHT
+  HOUSING
+  CAR_RENTAL
+  RELOCATION
+  FIRST_WEEK
+  EMERGENCY_HOUSING
+  LOYALTY
 }
 
 enum BookingStatus {
@@ -35,578 +51,667 @@ enum BookingStatus {
   CANCELLED
 }
 
-enum ReadinessStatus {
-  NOT_STARTED
-  IN_PROGRESS
-  READY
-  BLOCKED
+enum VendorType {
+  HOUSING
+  TRAVEL
+  CAR_RENTAL
+  RELOCATION
+  OTHER
 }
 
-enum VerificationStatus {
-  PENDING
-  VERIFIED
-  REJECTED
-}
-
-enum TaskStatus {
-  NEW
-  IN_PROGRESS
-  WAITING_CANDIDATE
-  COMPLETED
-  CANCELLED
-}
-
-enum Priority {
+enum TaskPriority {
   LOW
   MEDIUM
   HIGH
   URGENT
 }
 
-enum NotificationType {
-  INFO
-  WARNING
-  ACTION_REQUIRED
+enum TaskStatus {
+  NEW
+  IN_PROGRESS
+  WAITING
+  COMPLETED
+  CANCELLED
 }
 
-enum PaymentStatus {
-  PENDING
-  SUCCEEDED
-  FAILED
-  REFUNDED
+enum RiskLabel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
 }
 
-enum LeadSource {
-  PRICING
-  CONTACT
-  WEBSITE
-}
-
-enum AIInsightType {
-  OFFER_BOOST
-  RISK_SCORE
-  READINESS
-  CONCIERGE
-  MSP_REPORT
+enum DemoStatus {
+  NEW
+  SCHEDULED
+  COMPLETED
+  CANCELLED
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  name         String
-  passwordHash String?
-  phone        String?
-  image        String?
-  role         Role     @default(CANDIDATE)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String    @unique
+  name          String?
+  password      String?
+  role          UserRole  @default(CANDIDATE)
+  image         String?
+  emailVerified DateTime?
+  phone         String?
+  agencyId      String?   @db.Uuid
 
-  agenciesOwned  Agency[]        @relation("AgencyOwner")
-  memberships    AgencyMember[]
-  candidate      Candidate?
-  vendors        Vendor[]
-  landlords      Landlord[]
-  offersCreated  Offer[]         @relation("RecruiterOffers")
-  conciergeTasks ConciergeTask[] @relation("ConciergeTaskOwner")
-  notifications  Notification[]
-  activityLogs   ActivityLog[]
-  auditLogs      AuditLog[]
-  mspReports     MSPReport[]
+  agency        Agency?   @relation(fields: [agencyId], references: [id], onDelete: SetNull)
 
-  accounts Account[]
-  sessions Session[]
-}
+  accounts         Account[]
+  sessions         Session[]
+  agencyMemberships AgencyMember[]
+  candidate        Candidate?
+  vendor           Vendor?
+  notifications    Notification[]
+  activityLogs     ActivityLog[]
+  documentVaults   DocumentVault[]
+  auditLogs        AuditLog[]
 
-model Agency {
-  id             String   @id @default(uuid())
-  name           String
-  slug           String   @unique
-  ownerId        String
-  primaryColor   String   @default("#0B3C5D")
-  secondaryColor String   @default("#E63946")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  owner             User               @relation("AgencyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  members           AgencyMember[]
-  candidates        Candidate[]
-  assignments       Assignment[]
-  offers            Offer[]
-  bookingRequests   BookingRequest[]
-  conciergeTasks    ConciergeTask[]
-  activityLogs      ActivityLog[]
-  subscriptionPlans SubscriptionPlan[]
-  paymentRecords    PaymentRecord[]
-  mspReports        MSPReport[]
-  auditLogs         AuditLog[]
-}
-
-model AgencyMember {
-  id        String   @id @default(uuid())
-  agencyId  String
-  userId    String
-  title     String?
-  role      Role
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([email])
+  @@index([role])
+  @@index([agencyId])
+  @@map("users")
+}
 
-  @@unique([agencyId, userId])
+model Account {
+  id                String  @id @default(uuid()) @db.Uuid
+  userId            String  @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique
+  userId       String   @db.Uuid
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Agency {
+  id                 String  @id @default(uuid()) @db.Uuid
+  name               String
+  slug               String  @unique
+  logo               String?
+  description        String?
+  website            String?
+  contactEmail       String?
+  contactPhone       String?
+  address            String?
+  city               String?
+  state              String?
+  zipCode            String?
+  subscriptionPlanId String? @db.Uuid
+  isActive           Boolean @default(true)
+
+  subscriptionPlan SubscriptionPlan? @relation(fields: [subscriptionPlanId], references: [id], onDelete: SetNull)
+
+  users          User[]
+  members        AgencyMember[]
+  assignments    Assignment[]
+  offers         Offer[]
+  paymentRecords PaymentRecord[]
+  mspReports     MSPReport[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("agencies")
+}
+
+model AgencyMember {
+  id       String   @id @default(uuid()) @db.Uuid
+  userId   String   @db.Uuid
+  agencyId String   @db.Uuid
+  role     UserRole
+  isActive Boolean  @default(true)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, agencyId])
+  @@index([agencyId])
+  @@index([userId])
+  @@map("agency_members")
 }
 
 model Candidate {
-  id                 String   @id @default(uuid())
-  userId             String?  @unique
-  agencyId           String
-  name               String
-  email              String
-  phone              String?
-  role               String
-  specialty          String
-  licenseState       String
-  experienceYears    Int      @default(0)
-  engagementScore    Float    @default(0)
-  unreadMessageCount Int      @default(0)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id              String  @id @default(uuid()) @db.Uuid
+  userId          String  @unique @db.Uuid
+  firstName       String
+  lastName        String
+  email           String
+  phone           String?
+  specialty       String?
+  licenseState    String?
+  experience      Int?
+  resumeUrl       String?
+  profileComplete Boolean @default(false)
 
-  user                User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
-  agency              Agency               @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  offers              Offer[]
-  assignments         Assignment[]
-  bookingRequests     BookingRequest[]
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  assignments        Assignment[]
+  offers             Offer[]
+  bookingRequests    BookingRequest[]
   retentionRiskScores RetentionRiskScore[]
-  documentVault       DocumentVault[]
-  aiInsights          AIInsight[]
-  activityLogs        ActivityLog[]
-  conciergeTasks      ConciergeTask[]
+  activityLogs       ActivityLog[]
+  documentVaults     DocumentVault[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([specialty])
+  @@index([licenseState])
+  @@map("candidates")
 }
 
 model Assignment {
-  id                 String          @id @default(uuid())
-  agencyId           String
-  candidateId        String
-  facilityName       String
-  city               String
-  state              String
-  mspClient          String?
-  role               String
-  specialty          String
-  startDate          DateTime
-  durationWeeks      Int
-  shift              String
-  readinessStatus    ReadinessStatus @default(NOT_STARTED)
-  documentsStatus    ReadinessStatus @default(NOT_STARTED)
-  housingStatus      ReadinessStatus @default(NOT_STARTED)
-  travelStatus       ReadinessStatus @default(NOT_STARTED)
-  firstWeekReadiness Int             @default(0)
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
+  id           String           @id @default(uuid()) @db.Uuid
+  agencyId     String           @db.Uuid
+  candidateId  String           @db.Uuid
+  facilityName String
+  city         String
+  state        String
+  startDate    DateTime
+  endDate      DateTime
+  duration     Int
+  shift        String
+  specialty    String
+  mspClient    String?
+  status       AssignmentStatus @default(DRAFT)
 
-  agency              Agency               @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  candidate           Candidate            @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  offers              Offer[]
-  housingOptions      HousingOption[]
-  travelOptions       TravelOption[]
-  carRentalOptions    CarRentalOption[]
-  bookingRequests     BookingRequest[]
-  conciergeTasks      ConciergeTask[]
-  documentVault       DocumentVault[]
-  activityLogs        ActivityLog[]
-  retentionRiskScores RetentionRiskScore[]
-  aiInsights          AIInsight[]
+  agency    Agency    @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  offers Offer[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agencyId])
+  @@index([candidateId])
+  @@index([status])
+  @@index([startDate])
+  @@map("assignments")
 }
 
 model Offer {
-  id           String      @id @default(uuid())
-  agencyId     String
-  candidateId  String
-  assignmentId String
-  recruiterId  String
-  status       OfferStatus @default(DRAFT)
-  token        String      @unique @default(uuid())
+  id                       String      @id @default(uuid()) @db.Uuid
+  agencyId                 String      @db.Uuid
+  candidateId              String      @db.Uuid
+  assignmentId             String      @db.Uuid
+  weeklyPay                Float
+  taxableRate              Float
+  stipend                  Float
+  totalContractValue       Float
+  status                   OfferStatus @default(DRAFT)
+  token                    String      @unique @default(uuid())
+  sentAt                   DateTime?
+  viewedAt                 DateTime?
+  respondedAt              DateTime?
+  aiEnhancedSummary        String?     @db.Text
+  aiValueStatement         String?     @db.Text
+  aiSMSPitch               String?     @db.Text
+  aiEmailPitch             String?     @db.Text
+  aiCloseStrategy          String?     @db.Text
+  candidateConfidenceScore Float?
 
-  weeklyPay              Decimal @db.Decimal(10, 2)
-  taxableRate            Decimal @db.Decimal(10, 2)
-  stipend                Decimal @db.Decimal(10, 2)
-  estimatedContractValue Decimal @db.Decimal(12, 2)
+  agency     Agency     @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  candidate  Candidate  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
 
-  enhancedOfferSummary     String?
-  candidateValueStatement  String?
-  recruiterTalkingPoints   String?
-  smsPitch                 String?
-  emailPitch               String?
-  closeStrategy            String?
-  pdfReadyOffer            String?
-  candidateConfidenceScore Int?
-
-  viewedAt   DateTime?
-  sentAt     DateTime?
-  acceptedAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-
-  agency              Agency               @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  candidate           Candidate            @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  assignment          Assignment           @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  recruiter           User                 @relation("RecruiterOffers", fields: [recruiterId], references: [id], onDelete: Cascade)
-  perks               OfferPerk[]
-  bookingRequests     BookingRequest[]
+  perks              OfferPerk[]
+  bookingRequests    BookingRequest[]
   retentionRiskScores RetentionRiskScore[]
-  aiInsights          AIInsight[]
-  activityLogs        ActivityLog[]
+  activityLogs       ActivityLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agencyId])
+  @@index([candidateId])
+  @@index([assignmentId])
+  @@index([status])
+  @@index([token])
+  @@map("offers")
 }
 
 model OfferPerk {
-  id        String   @id @default(uuid())
-  offerId   String
-  name      String
-  enabled   Boolean  @default(false)
-  valueNote String?
-  createdAt DateTime @default(now())
+  id        String   @id @default(uuid()) @db.Uuid
+  offerId   String   @db.Uuid
+  type      PerkType
+  isEnabled Boolean  @default(true)
+  details   String?
+  cost      Float?
 
   offer Offer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([offerId])
+  @@map("offer_perks")
 }
 
 model BookingRequest {
-  id                String        @id @default(uuid())
-  agencyId          String
-  candidateId       String
-  assignmentId      String
-  offerId           String
+  id                String        @id @default(uuid()) @db.Uuid
+  offerId           String        @db.Uuid
+  candidateId       String        @db.Uuid
   needFlight        Boolean       @default(false)
   needHousing       Boolean       @default(false)
   needCar           Boolean       @default(false)
   moveDate          DateTime?
   budgetRange       String?
   preferredLocation String?
-  notes             String?
+  notes             String?       @db.Text
   status            BookingStatus @default(NEW)
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  conciergeOwnerId  String?       @db.Uuid
 
-  agency         Agency          @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  candidate      Candidate       @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  assignment     Assignment      @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  offer          Offer           @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  offer     Offer     @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
   conciergeTasks ConciergeTask[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([offerId])
+  @@index([candidateId])
+  @@index([status])
+  @@index([conciergeOwnerId])
+  @@map("booking_requests")
 }
 
 model HousingOption {
-  id                 String             @id @default(uuid())
-  assignmentId       String
-  vendorId           String?
-  landlordId         String?
+  id                 String    @id @default(uuid()) @db.Uuid
+  vendorId           String?   @db.Uuid
   title              String
+  description        String    @db.Text
+  address            String
   city               String
   state              String
-  distanceMiles      Float
-  monthlyCost        Decimal            @db.Decimal(10, 2)
+  zipCode            String
+  monthlyRate        Float
   availableFrom      DateTime
-  isVerified         Boolean            @default(false)
-  verificationStatus VerificationStatus @default(PENDING)
+  availableTo        DateTime?
+  bedrooms           Int
+  bathrooms          Int
+  furnished          Boolean   @default(false)
+  petFriendly        Boolean   @default(false)
+  distanceToFacility Float?
+  verified           Boolean   @default(false)
   rating             Float?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  images             String[]
 
-  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  vendor     Vendor?    @relation(fields: [vendorId], references: [id], onDelete: SetNull)
-  landlord   Landlord?  @relation(fields: [landlordId], references: [id], onDelete: SetNull)
+  vendor Vendor? @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([city, state])
+  @@index([vendorId])
+  @@index([availableFrom])
+  @@index([verified])
+  @@map("housing_options")
 }
 
 model TravelOption {
-  id                 String             @id @default(uuid())
-  assignmentId       String
-  vendorId           String?
-  providerName       String
-  city               String
-  state              String
-  estimatedCost      Decimal            @db.Decimal(10, 2)
-  availableFrom      DateTime
-  verificationStatus VerificationStatus @default(PENDING)
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  id            String    @id @default(uuid()) @db.Uuid
+  type          String
+  origin        String
+  destination   String
+  departureDate DateTime
+  returnDate    DateTime?
+  cost          Float
+  provider      String
+  bookingRef    String?
+  status        String
 
-  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  vendor     Vendor?    @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
+  @@index([departureDate])
+  @@map("travel_options")
 }
 
 model CarRentalOption {
-  id                 String             @id @default(uuid())
-  assignmentId       String
-  vendorId           String?
-  providerName       String
-  city               String
-  state              String
-  weeklyCost         Decimal            @db.Decimal(10, 2)
-  availableFrom      DateTime
-  verificationStatus VerificationStatus @default(PENDING)
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  id          String  @id @default(uuid()) @db.Uuid
+  provider    String
+  vehicleType String
+  dailyRate   Float
+  weeklyRate  Float
+  city        String
+  state       String
+  available   Boolean @default(true)
 
-  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  vendor     Vendor?    @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
+  @@index([city, state])
+  @@index([available])
+  @@map("car_rental_options")
 }
 
 model Vendor {
-  id                 String             @id @default(uuid())
-  ownerId            String?
-  name               String
-  category           String
-  city               String
-  state              String
-  verificationStatus VerificationStatus @default(PENDING)
-  rating             Float?
-  contactEmail       String
-  contactPhone       String?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  id          String     @id @default(uuid()) @db.Uuid
+  userId      String?    @unique @db.Uuid
+  name        String
+  companyName String
+  email       String
+  phone       String?
+  type        VendorType
+  description String?    @db.Text
+  website     String?
+  verified    Boolean    @default(false)
+  rating      Float?
+  isActive    Boolean    @default(true)
 
-  owner            User?             @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  housingOptions   HousingOption[]
-  travelOptions    TravelOption[]
-  carRentalOptions CarRentalOption[]
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  landlord       Landlord?
+  housingOptions HousingOption[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([verified])
+  @@index([isActive])
+  @@map("vendors")
 }
 
 model Landlord {
-  id                 String             @id @default(uuid())
-  ownerId            String?
-  companyName        String
-  city               String
-  state              String
-  verificationStatus VerificationStatus @default(PENDING)
-  rating             Float?
-  contactEmail       String
-  contactPhone       String?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  id            String @id @default(uuid()) @db.Uuid
+  vendorId      String @unique @db.Uuid
+  propertyCount Int    @default(0)
+  bio           String? @db.Text
 
-  owner          User?           @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  housingOptions HousingOption[]
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@map("landlords")
 }
 
 model ConciergeTask {
-  id               String     @id @default(uuid())
-  agencyId         String
-  bookingRequestId String?
-  assignmentId     String?
-  candidateId      String?
-  ownerId          String?
+  id               String       @id @default(uuid()) @db.Uuid
+  bookingRequestId String       @db.Uuid
+  assignedToId     String?      @db.Uuid
   title            String
-  description      String?
-  status           TaskStatus @default(NEW)
-  priority         Priority   @default(MEDIUM)
+  description      String       @db.Text
+  priority         TaskPriority @default(MEDIUM)
+  status           TaskStatus   @default(NEW)
   dueDate          DateTime?
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  completedAt      DateTime?
 
-  agency         Agency          @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  bookingRequest BookingRequest? @relation(fields: [bookingRequestId], references: [id], onDelete: SetNull)
-  assignment     Assignment?     @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
-  candidate      Candidate?      @relation(fields: [candidateId], references: [id], onDelete: SetNull)
-  owner          User?           @relation("ConciergeTaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  bookingRequest BookingRequest @relation(fields: [bookingRequestId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bookingRequestId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([priority])
+  @@map("concierge_tasks")
 }
 
 model ActivityLog {
-  id           String   @id @default(uuid())
-  agencyId     String
-  actorId      String?
-  candidateId  String?
-  offerId      String?
-  assignmentId String?
-  action       String
-  metadata     Json?
-  createdAt    DateTime @default(now())
+  id          String  @id @default(uuid()) @db.Uuid
+  userId      String? @db.Uuid
+  offerId     String? @db.Uuid
+  candidateId String? @db.Uuid
+  action      String
+  details     String? @db.Text
+  metadata    Json?
+  ipAddress   String?
 
-  agency     Agency      @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  actor      User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
-  candidate  Candidate?  @relation(fields: [candidateId], references: [id], onDelete: SetNull)
-  offer      Offer?      @relation(fields: [offerId], references: [id], onDelete: SetNull)
-  assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  offer     Offer?     @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  candidate Candidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([offerId])
+  @@index([candidateId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("activity_logs")
 }
 
 model RetentionRiskScore {
-  id                  String   @id @default(uuid())
-  candidateId         String
-  assignmentId        String?
-  offerId             String?
+  id                  String    @id @default(uuid()) @db.Uuid
+  candidateId         String    @db.Uuid
+  offerId             String    @db.Uuid
   score               Int
-  label               String
-  reasoning           String
-  suggestedAction     String
-  suggestedSms        String
-  suggestedCallScript String
-  createdAt           DateTime @default(now())
+  label               RiskLabel
+  reasoning           String    @db.Text
+  suggestedAction     String?   @db.Text
+  suggestedSMS        String?   @db.Text
+  suggestedCallScript String?   @db.Text
+  factors             Json?
+  calculatedAt        DateTime  @default(now())
 
-  candidate  Candidate   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
-  offer      Offer?      @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  offer     Offer     @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([candidateId])
+  @@index([offerId])
+  @@index([score])
+  @@index([label])
+  @@map("retention_risk_scores")
 }
 
 model AIInsight {
-  id           String        @id @default(uuid())
-  type         AIInsightType
-  agencyId     String?
-  candidateId  String?
-  assignmentId String?
-  offerId      String?
-  title        String
-  content      String
-  model        String
-  createdAt    DateTime      @default(now())
+  id         String @id @default(uuid()) @db.Uuid
+  type       String
+  targetId   String
+  targetType String
+  content    String @db.Text
+  metadata   Json?
 
-  candidate  Candidate?  @relation(fields: [candidateId], references: [id], onDelete: SetNull)
-  assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
-  offer      Offer?      @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
+  @@index([targetId, targetType])
+  @@index([type])
+  @@map("ai_insights")
 }
 
 model Notification {
-  id        String           @id @default(uuid())
-  userId    String
-  type      NotificationType @default(INFO)
-  title     String
-  message   String
-  readAt    DateTime?
-  createdAt DateTime         @default(now())
+  id      String  @id @default(uuid()) @db.Uuid
+  userId  String  @db.Uuid
+  title   String
+  message String  @db.Text
+  type    String
+  read    Boolean @default(false)
+  link    String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+  @@map("notifications")
 }
 
 model SubscriptionPlan {
-  id            String    @id @default(uuid())
-  agencyId      String
-  name          String
-  stripePriceId String?
-  seats         Int       @default(1)
-  active        Boolean   @default(true)
-  startedAt     DateTime  @default(now())
-  renewalAt     DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String  @id @default(uuid()) @db.Uuid
+  name         String
+  description  String? @db.Text
+  monthlyPrice Float
+  annualPrice  Float
+  features     Json
+  maxUsers     Int
+  maxOffers    Int
+  isActive     Boolean @default(true)
 
-  agency   Agency          @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  payments PaymentRecord[]
+  agencies       Agency[]
+  paymentRecords PaymentRecord[]
+
+  createdAt DateTime @default(now())
+
+  @@index([isActive])
+  @@map("subscription_plans")
 }
 
 model PaymentRecord {
-  id              String        @id @default(uuid())
-  agencyId        String
-  subscriptionId  String?
-  amount          Decimal       @db.Decimal(10, 2)
-  currency        String        @default("USD")
-  status          PaymentStatus @default(PENDING)
-  stripePaymentId String?
-  paidAt          DateTime?
-  createdAt       DateTime      @default(now())
+  id                 String  @id @default(uuid()) @db.Uuid
+  agencyId           String  @db.Uuid
+  subscriptionPlanId String? @db.Uuid
+  amount             Float
+  currency           String  @default("USD")
+  status             String
+  stripePaymentId    String?
+  invoiceUrl         String?
 
-  agency       Agency            @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  subscription SubscriptionPlan? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  agency           Agency            @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  subscriptionPlan SubscriptionPlan? @relation(fields: [subscriptionPlanId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([agencyId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("payment_records")
 }
 
 model DocumentVault {
-  id           String             @id @default(uuid())
-  candidateId  String
-  assignmentId String?
-  documentType String
-  fileUrl      String
-  status       VerificationStatus @default(PENDING)
-  uploadedAt   DateTime           @default(now())
-  verifiedAt   DateTime?
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String?   @db.Uuid
+  candidateId String?   @db.Uuid
+  name        String
+  type        String
+  url         String
+  verified    Boolean   @default(false)
+  uploadedAt  DateTime  @default(now())
+  verifiedAt  DateTime?
 
-  candidate  Candidate   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  candidate Candidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([candidateId])
+  @@index([type])
+  @@map("document_vaults")
 }
 
 model MSPReport {
-  id                  String   @id @default(uuid())
-  agencyId            String
-  generatedById       String?
-  periodStart         DateTime
-  periodEnd           DateTime
-  acceptanceRate      Float
-  backoutRate         Float
-  timeToReadyDays     Float
-  firstDayShowRate    Float
-  readinessRate       Float
-  supplierPerformance Json?
-  aiExecutiveSummary  String?
-  createdAt           DateTime @default(now())
+  id          String  @id @default(uuid()) @db.Uuid
+  agencyId    String? @db.Uuid
+  reportType  String
+  dateRange   String
+  data        Json
+  generatedBy String?
+  aiSummary   String? @db.Text
 
-  agency      Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  generatedBy User?  @relation(fields: [generatedById], references: [id], onDelete: SetNull)
+  agency Agency? @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([agencyId])
+  @@index([reportType])
+  @@index([createdAt])
+  @@map("msp_reports")
 }
 
 model AuditLog {
-  id         String   @id @default(uuid())
-  agencyId   String?
-  actorId    String?
-  action     String
-  targetType String
-  targetId   String
-  metadata   Json?
-  createdAt  DateTime @default(now())
+  id        String  @id @default(uuid()) @db.Uuid
+  userId    String? @db.Uuid
+  action    String
+  entity    String
+  entityId  String
+  changes   Json?
+  ipAddress String?
 
-  agency Agency? @relation(fields: [agencyId], references: [id], onDelete: SetNull)
-  actor  User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
 model Lead {
-  id        String     @id @default(uuid())
-  source    LeadSource @default(WEBSITE)
-  name      String
-  workEmail String
-  company   String
-  teamSize  String?
-  message   String?
-  createdAt DateTime   @default(now())
+  id      String  @id @default(uuid()) @db.Uuid
+  name    String
+  email   String
+  company String
+  phone   String?
+  role    String?
+  message String? @db.Text
+  source  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([createdAt])
+  @@map("leads")
 }
 
 model DemoRequest {
-  id                String   @id @default(uuid())
-  name              String
-  workEmail         String
-  company           String
-  role              String
-  monthlyPlacements Int?
-  painPoint         String?
-  createdAt         DateTime @default(now())
-}
+  id            String     @id @default(uuid()) @db.Uuid
+  name          String
+  email         String
+  company       String
+  phone         String?
+  role          String?
+  teamSize      String?
+  message       String?    @db.Text
+  preferredDate DateTime?
+  preferredTime String?
+  status        DemoStatus @default(NEW)
 
-model Account {
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@id([provider, providerAccountId])
-}
-
-model Session {
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@id([sessionToken])
-}
-
-model VerificationToken {
-  identifier String
-  token      String
-  expires    DateTime
-
-  @@id([identifier, token])
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+  @@map("demo_requests")
 }

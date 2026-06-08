@@ -1,46 +1,58 @@
-import * as React from "react";
-import { Slot } from "@radix-ui/react-slot";
-import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "@/lib/utils";
+"use client"
+
+import * as React from "react"
+import { Slot } from "@radix-ui/react-slot"
+import { cva, type VariantProps } from "class-variance-authority"
+
+import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3C5D] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-orbit-blue text-white hover:bg-orbit-blue/90",
-        destructive: "bg-orbit-red text-white hover:bg-orbit-red/90",
-        outline: "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
-        secondary: "bg-slate-100 text-slate-900 hover:bg-slate-200",
-        ghost: "text-slate-700 hover:bg-slate-100",
-        link: "text-orbit-blue underline-offset-4 hover:underline"
+        default: "bg-[#0B3C5D] text-[#F8FAFC] shadow hover:bg-[#0B3C5D]/90",
+        destructive:
+          "bg-[#E63946] text-[#F8FAFC] shadow-sm hover:bg-[#E63946]/90",
+        outline:
+          "border border-[#1F2937]/20 bg-transparent shadow-sm hover:bg-[#0B3C5D]/10 hover:text-[#0B3C5D]",
+        secondary:
+          "bg-[#1F2937] text-[#F8FAFC] shadow-sm hover:bg-[#1F2937]/80",
+        ghost: "hover:bg-[#0B3C5D]/10 hover:text-[#0B3C5D]",
+        link: "text-[#0B3C5D] underline-offset-4 hover:underline",
       },
       size: {
         default: "h-10 px-4 py-2",
         sm: "h-9 rounded-md px-3",
         lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10"
-      }
+        icon: "h-10 w-10",
+      },
     },
     defaultVariants: {
       variant: "default",
-      size: "default"
-    }
+      size: "default",
+    },
   }
-);
+)
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
-  asChild?: boolean;
+  asChild?: boolean
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
-    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />;
+    const Comp = asChild ? Slot : "button"
+    return (
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        {...props}
+      />
+    )
   }
-);
-Button.displayName = "Button";
+)
+Button.displayName = "Button"
 
-export { Button, buttonVariants };
+export { Button, buttonVariants }

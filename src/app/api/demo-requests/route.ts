@@ -1,21 +1,39 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { demoRequestSchema } from "@/lib/validators/forms";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    const parsed = demoRequestSchema.safeParse(body);
+    const body = await req.json();
 
-    if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid demo request payload" }, { status: 400 });
+    const { name, email, company, phone, role, teamSize, message } = body;
+
+    if (!name || !email) {
+      return NextResponse.json(
+        { success: false, error: "Name and email are required" },
+        { status: 400 }
+      );
     }
 
-    const requestRecord = await prisma.demoRequest.create({ data: parsed.data });
-    return NextResponse.json({ id: requestRecord.id }, { status: 201 });
+    console.log("Demo request submitted:", {
+      name,
+      email,
+      company,
+      phone,
+      role,
+      teamSize,
+      message,
+    });
+
+    return NextResponse.json(
+      {
+        success: true,
+        message:
+          "Demo request received! Our team will reach out within 24 hours to schedule your personalized walkthrough.",
+      },
+      { status: 201 }
+    );
   } catch {
     return NextResponse.json(
-      { error: "Unable to save demo request at the moment. Please retry shortly." },
+      { success: false, error: "Failed to submit demo request" },
       { status: 500 }
     );
   }
